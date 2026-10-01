@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "ihs/platform_view.h"
+#include "params.h"
 #include "status.h"
 #include "uyvy.h"
 #include "v4l2_capture.h"
@@ -283,13 +284,21 @@ void OnSuspended(void* user_data, uint8_t suspended) {
   static_cast<GrabberView*>(user_data)->SetSuspended(suspended != 0);
 }
 
-CaptureConfig ConfigFromEnv() {
-  CaptureConfig c;
+// Einstellungen kommen aus Dart (creationParams). Die Umgebung überschreibt
+// sie nur für Tests von Hand.
+CaptureConfig ConfigFor(const IhsPvCreateInfo* info) {
+  CaptureConfig c = DefaultConfig();
+  if (!ApplyParams(info->params, info->params_size, &c)) {
+    std::fprintf(stderr, "[video_grabber] view %d: invalid params ignored\n",
+                 info->id);
+  }
   if (const char* d = std::getenv("VG_DEVICE")) c.device = d;
   if (const char* i = std::getenv("VG_INPUT")) {
     c.input = static_cast<uint32_t>(std::atoi(i));
   }
-  if (const char* n = std::getenv("VG_NORM")) c.pal = std::string(n) != "ntsc";
+  if (const char* n = std::getenv("VG_NORM")) c.pal = std::string(n) == "pal";
+  std::fprintf(stderr, "[video_grabber] view %d: %s input %u %s\n", info->id,
+               c.device.c_str(), c.input, c.pal ? "PAL" : "NTSC");
   return c;
 }
 
@@ -329,7 +338,7 @@ int Factory(const IhsPvCreateInfo* info, void* /*factory_user_data*/,
     return IHS_PV_ERR_UNSUPPORTED;
   }
 
-  auto* v = new GrabberView(info->id, view, drm_fd, ConfigFromEnv());
+  auto* v = new GrabberView(info->id, view, drm_fd, ConfigFor(info));
   out_callbacks->struct_size = sizeof(*out_callbacks);
   out_callbacks->dispose = &OnDispose;
   out_callbacks->set_suspended = &OnSuspended;

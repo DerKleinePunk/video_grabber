@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'grabber_config.dart';
 import 'grabber_source.dart';
 
 /// View-Art, die native/src/grabber_view.cc anmeldet.
@@ -77,10 +78,14 @@ class FfiGrabberNativeApi implements GrabberNativeApi {
 /// Aufnahme im nativen Teil und wird regelmäßig abgefragt.
 class NativeGrabberSource implements GrabberSource {
   NativeGrabberSource({
+    this.config = const GrabberConfig(),
     GrabberNativeApi? api,
     this.pollInterval = const Duration(milliseconds: 250),
   }) : api = api ?? FfiGrabberNativeApi();
 
+  /// Gilt für die View, die beim ersten Bau entsteht. Für andere Werte eine
+  /// neue Quelle anlegen (z. B. mit ValueKey(config) am Widget).
+  final GrabberConfig config;
   final GrabberNativeApi api;
   final Duration pollInterval;
 
@@ -147,6 +152,7 @@ class NativeGrabberSource implements GrabberSource {
           onCreatePlatformView: (params) {
             final controller = _GrabberViewController(
               id: params.id,
+              params: config.encode(),
               width: constraints.maxWidth * dpr,
               height: constraints.maxHeight * dpr,
             );
@@ -175,11 +181,13 @@ class NativeGrabberSource implements GrabberSource {
 class _GrabberViewController extends PlatformViewController {
   _GrabberViewController({
     required this.id,
+    required this.params,
     required this.width,
     required this.height,
   });
 
   final int id;
+  final Uint8List params;
   final double width;
   final double height;
   bool _created = false;
@@ -202,6 +210,7 @@ class _GrabberViewController extends PlatformViewController {
       'direction': 0,
       'width': width,
       'height': height,
+      'params': params,
     });
     _created = true;
   }

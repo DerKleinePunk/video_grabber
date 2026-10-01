@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall -Wextra -Werror)
 
 # Gerätefreier Kern, auf dem Entwicklungsrechner und auf dem Pi testbar.
-add_library(vg_core STATIC src/uyvy.cc src/v4l2_capture.cc src/status.cc)
+add_library(vg_core STATIC src/uyvy.cc src/v4l2_capture.cc src/status.cc src/params.cc)
 target_include_directories(vg_core PUBLIC src)
 set_property(TARGET vg_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 
@@ -24,6 +24,9 @@ if (BUILD_TESTING)
   add_executable(status_test test/status_test.cc)
   target_link_libraries(status_test vg_core)
   add_test(NAME status_test COMMAND status_test)
+  add_executable(params_test test/params_test.cc)
+  target_link_libraries(params_test vg_core)
+  add_test(NAME params_test COMMAND params_test)
 endif ()
 
 # Platform-View-Plugin für ivi-homescreen, gebaut gegen ein Shell-Build-
