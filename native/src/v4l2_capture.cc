@@ -83,7 +83,7 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
 
   v4l2_format fmt{};
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  fmt.fmt.pix.width = 720;
+  fmt.fmt.pix.width = config.width;
   fmt.fmt.pix.height = config.pal ? 576 : 480;
   fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
   fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;

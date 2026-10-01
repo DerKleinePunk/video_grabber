@@ -297,8 +297,12 @@ CaptureConfig ConfigFor(const IhsPvCreateInfo* info) {
     c.input = static_cast<uint32_t>(std::atoi(i));
   }
   if (const char* n = std::getenv("VG_NORM")) c.pal = std::string(n) == "pal";
-  std::fprintf(stderr, "[video_grabber] view %d: %s input %u %s\n", info->id,
-               c.device.c_str(), c.input, c.pal ? "PAL" : "NTSC");
+  if (const char* w = std::getenv("VG_WIDTH")) {
+    c.width = std::string(w) == "720" ? 720 : 360;
+  }
+  std::fprintf(stderr, "[video_grabber] view %d: %s input %u %s width %u\n",
+               info->id, c.device.c_str(), c.input, c.pal ? "PAL" : "NTSC",
+               c.width);
   return c;
 }
 

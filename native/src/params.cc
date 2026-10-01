@@ -7,6 +7,7 @@ namespace vg {
 CaptureConfig DefaultConfig() {
   CaptureConfig c;
   c.pal = false;
+  c.width = 360;
   return c;
 }
 
@@ -47,6 +48,12 @@ bool ApplyParams(const uint8_t* data, size_t size, CaptureConfig* config) {
       uint32_t v;
       if (ParseUint(value, &v)) {
         config->input = v;
+      } else {
+        ok = false;
+      }
+    } else if (key == "width") {
+      if (value == "720" || value == "360") {
+        config->width = value == "720" ? 720 : 360;
       } else {
         ok = false;
       }

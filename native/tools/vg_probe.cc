@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   if (argc > 1) cfg.device = argv[1];
   if (argc > 2) cfg.input = static_cast<uint32_t>(std::atoi(argv[2]));
   if (const char* n = std::getenv("VG_NORM")) cfg.pal = std::string(n) == "pal";
+  if (const char* w = std::getenv("VG_WIDTH")) cfg.width = static_cast<uint32_t>(std::atoi(w));
   const int seconds = argc > 3 ? std::atoi(argv[3]) : 3;
   const char* out_path = argc > 4 ? argv[4] : nullptr;
 

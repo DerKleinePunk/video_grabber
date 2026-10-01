@@ -14,6 +14,7 @@ bool Apply(const std::string& s, vg::CaptureConfig* c) {
 TEST_CASE(vorgabe_ist_ntsc_composite0_video0) {
   const auto c = vg::DefaultConfig();
   EXPECT(!c.pal);
+  EXPECT(c.width == 360);
   EXPECT(c.input == 0);
   EXPECT(c.device == "/dev/video0");
 }
@@ -26,6 +27,16 @@ TEST_CASE(alle_schluessel_werden_uebernommen) {
   EXPECT(c.pal);
   EXPECT(Apply("norm=ntsc", &c));
   EXPECT(!c.pal);
+}
+
+TEST_CASE(breite_720_oder_360) {
+  auto c = vg::DefaultConfig();
+  EXPECT(Apply("width=720", &c));
+  EXPECT(c.width == 720);
+  EXPECT(Apply("width=360", &c));
+  EXPECT(c.width == 360);
+  EXPECT(!Apply("width=640", &c));
+  EXPECT(c.width == 360);
 }
 
 TEST_CASE(leere_parameter_lassen_die_vorgabe) {

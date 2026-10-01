@@ -9,6 +9,7 @@ void main() {
     expect(c.norm, VideoNorm.ntsc);
     expect(c.input, 0);
     expect(c.device, '/dev/video0');
+    expect(c.width, 360);
   });
 
   test('kodiert wie native/src/params.h erwartet', () {
@@ -16,11 +17,15 @@ void main() {
       device: '/dev/video2',
       input: 4,
       norm: VideoNorm.pal,
+      width: 720,
     );
-    expect(utf8.decode(c.encode()), 'device=/dev/video2\ninput=4\nnorm=pal\n');
+    expect(
+      utf8.decode(c.encode()),
+      'device=/dev/video2\ninput=4\nnorm=pal\nwidth=720\n',
+    );
     expect(
       utf8.decode(const GrabberConfig().encode()),
-      'device=/dev/video0\ninput=0\nnorm=ntsc\n',
+      'device=/dev/video0\ninput=0\nnorm=ntsc\nwidth=360\n',
     );
   });
 
@@ -30,6 +35,7 @@ void main() {
       const GrabberConfig(norm: VideoNorm.pal),
       isNot(const GrabberConfig()),
     );
+    expect(const GrabberConfig(width: 720), isNot(const GrabberConfig()));
   });
 
   test('NativeGrabberSource nimmt die Einstellungen an', () {

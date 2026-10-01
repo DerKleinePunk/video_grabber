@@ -32,6 +32,9 @@ struct CaptureConfig {
   std::string device = "/dev/video0";
   uint32_t input = 0;   // Composite0 = gelber Stecker (am Gerät prüfen)
   bool pal = true;      // sonst NTSC
+  // 720 oder 360. Bei 720 ist der USB am Anschlag: auf jeep-pi kamen ~2/3
+  // der Bilder unvollständig an, bei 360 keines.
+  uint32_t width = 720;
   uint32_t buffers = 4;
 };
 

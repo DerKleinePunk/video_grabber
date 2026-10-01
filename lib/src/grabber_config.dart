@@ -12,7 +12,8 @@ class GrabberConfig {
     this.device = '/dev/video0',
     this.input = 0,
     this.norm = VideoNorm.ntsc,
-  });
+    this.width = 360,
+  }) : assert(width == 360 || width == 720);
 
   /// V4L2-Gerät des Grabbers.
   final String device;
@@ -24,9 +25,16 @@ class GrabberConfig {
   /// Grabbers ist dafür nicht verlässlich.
   final VideoNorm norm;
 
+  /// Bildbreite vom Grabber: 360 oder 720. Bei 720 ist der USB am Anschlag
+  /// (auf jeep-pi ~2/3 der Bilder unvollständig, sichtbar ~10/s), bei 360
+  /// kommen alle 30/s. Für ein analoges Kamerabild kostet 360 kaum Schärfe.
+  final int width;
+
   /// creationParams für die native View, Format wie native/src/params.h.
   Uint8List encode() => Uint8List.fromList(
-    utf8.encode('device=$device\ninput=$input\nnorm=${norm.name}\n'),
+    utf8.encode(
+      'device=$device\ninput=$input\nnorm=${norm.name}\nwidth=$width\n',
+    ),
   );
 
   @override
@@ -34,11 +42,12 @@ class GrabberConfig {
       other is GrabberConfig &&
       other.device == device &&
       other.input == input &&
-      other.norm == norm;
+      other.norm == norm &&
+      other.width == width;
 
   @override
-  int get hashCode => Object.hash(device, input, norm);
+  int get hashCode => Object.hash(device, input, norm, width);
 
   @override
-  String toString() => 'GrabberConfig($device, $input, ${norm.name})';
+  String toString() => 'GrabberConfig($device, $input, ${norm.name}, $width)';
 }

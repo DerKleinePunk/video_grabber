@@ -1,6 +1,6 @@
 // Einstellungen, die Dart beim Anlegen der View mitgibt (creationParams):
 // UTF-8-Text, je Zeile "schlüssel=wert". Bekannt: device, input, norm
-// (pal|ntsc). Unbekanntes wird ignoriert, damit neue Schlüssel ältere
+// (pal|ntsc), width (720|360). Unbekanntes wird ignoriert, damit neue Schlüssel ältere
 // Bibliotheken nicht stören.
 
 #pragma once

@@ -147,6 +147,16 @@ TEST_CASE(oeffnen_stellt_pal_eingang_und_uyvy_ein) {
   EXPECT(s.queued.size() == 4);
 }
 
+TEST_CASE(breite_wird_an_den_treiber_gegeben) {
+  FakeState s;
+  auto cap = Make(&s);
+  vg::CaptureConfig cfg;
+  cfg.width = 360;
+  EXPECT(cap.Open(cfg) == vg::OpenResult::kOk);
+  EXPECT(s.width == 360);
+  EXPECT(cap.width() == 360);
+}
+
 TEST_CASE(ntsc_hat_480_zeilen) {
   FakeState s;
   auto cap = Make(&s);
