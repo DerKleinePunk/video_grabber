@@ -5,9 +5,13 @@ import 'grabber_source.dart';
 /// Zeigt das Bild einer [GrabberSource] im richtigen Seitenverhältnis und
 /// sonst einen Hinweis auf schwarzem Grund.
 class GrabberView extends StatelessWidget {
-  const GrabberView({super.key, required this.source});
+  const GrabberView({super.key, required this.source, this.messageBuilder});
 
   final GrabberSource source;
+
+  /// Ersetzt die eingebauten (deutschen) Hinweise, z. B. für Übersetzungen.
+  /// Wird nur aufgerufen, wenn kein Bild läuft.
+  final String Function(GrabberState state)? messageBuilder;
 
   static String messageFor(GrabberState state) => switch (state.status) {
     GrabberStatus.connecting => 'Verbinde …',
@@ -38,7 +42,7 @@ class GrabberView extends StatelessWidget {
                       color: Colors.black,
                       child: Center(
                         child: Text(
-                          messageFor(state),
+                          (messageBuilder ?? messageFor)(state),
                           key: const ValueKey('grabber-message'),
                           style: const TextStyle(
                             color: Colors.white70,

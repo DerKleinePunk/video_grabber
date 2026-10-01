@@ -143,4 +143,29 @@ void main() {
     await tester.pump();
     expect(find.text('Berührt: 2'), findsOneWidget);
   });
+
+  testWidgets('eigene Hinweise ersetzen die eingebauten', (tester) async {
+    final source = FakeSource();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GrabberView(
+          source: source,
+          messageBuilder: (s) => 'EN:${s.status.name}:${s.error ?? ''}',
+        ),
+      ),
+    );
+    expect(_message(tester), 'EN:connecting:');
+    source.notifier.value = const GrabberState(GrabberStatus.noSignal);
+    await tester.pump();
+    expect(_message(tester), 'EN:noSignal:');
+    source.notifier.value = const GrabberState(
+      GrabberStatus.error,
+      error: 'busy',
+    );
+    await tester.pump();
+    expect(_message(tester), 'EN:error:busy');
+    source.notifier.value = const GrabberState(GrabberStatus.playing);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('grabber-message')), findsNothing);
+  });
 }
