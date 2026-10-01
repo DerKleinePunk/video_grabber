@@ -46,7 +46,48 @@ class _VideoGrabberAppState extends State<VideoGrabberApp> {
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         backgroundColor: Colors.black,
-        body: GrabberView(source: widget.source),
+        body: Row(
+          children: [
+            Expanded(child: GrabberView(source: widget.source)),
+            const SizedBox(width: 200, child: TouchProbe()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Knopf neben dem Bild: zeigt, ob Berührungen neben der nativen Fläche noch
+/// bei Flutter ankommen (Wunsch Michael 01.10.).
+class TouchProbe extends StatefulWidget {
+  const TouchProbe({super.key});
+
+  @override
+  State<TouchProbe> createState() => _TouchProbeState();
+}
+
+class _TouchProbeState extends State<TouchProbe> {
+  int _taps = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FilledButton(
+            key: const ValueKey('touch-probe'),
+            style: FilledButton.styleFrom(minimumSize: const Size(160, 96)),
+            onPressed: () => setState(() => _taps++),
+            child: const Text('Drück mich', style: TextStyle(fontSize: 22)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Berührt: $_taps',
+            key: const ValueKey('touch-count'),
+            style: const TextStyle(color: Colors.white70, fontSize: 22),
+          ),
+        ],
       ),
     );
   }

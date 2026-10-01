@@ -121,4 +121,26 @@ void main() {
     await tester.pump();
     expect(find.byKey(const ValueKey('test-pattern')), findsOneWidget);
   });
+
+  testWidgets('Knopf neben dem Bild zählt Berührungen', (tester) async {
+    tester.view.physicalSize = const Size(1024, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final source = FakeSource()
+      ..notifier.value = const GrabberState(GrabberStatus.playing);
+    await tester.pumpWidget(VideoGrabberApp(source: source));
+
+    final picture = tester.getRect(find.byKey(const ValueKey('picture')));
+    final button = tester.getRect(find.byKey(const ValueKey('touch-probe')));
+    expect(picture.overlaps(button), isFalse);
+    expect(button.left, greaterThanOrEqualTo(picture.right));
+    // 4:3 im Rest neben der 200 px breiten Leiste.
+    expect(picture.width / picture.height, closeTo(4 / 3, 0.01));
+
+    expect(find.text('Berührt: 0'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('touch-probe')));
+    await tester.tap(find.byKey(const ValueKey('touch-probe')));
+    await tester.pump();
+    expect(find.text('Berührt: 2'), findsOneWidget);
+  });
 }
