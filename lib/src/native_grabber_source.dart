@@ -23,21 +23,39 @@ abstract class GrabberNativeApi {
   int status(int viewId);
 }
 
-class FfiGrabberNativeApi implements GrabberNativeApi {
-  FfiGrabberNativeApi({String? path})
-    : _path =
-          path ??
-          Platform.environment['VG_LIBRARY'] ??
-          'lib/libvideo_grabber_view.so';
+/// Wo die Bibliothek gesucht wird, in dieser Reihenfolge: VG_LIBRARY, dann
+/// über LD_LIBRARY_PATH (so startet carnine-frontend das Bundle aus
+/// /opt/carnine/frontend), dann lib/ neben dem Arbeitsordner (Testaufbau).
+List<String> libraryCandidates(Map<String, String> environment) => [
+  ?environment['VG_LIBRARY'],
+  'libvideo_grabber_view.so',
+  'lib/libvideo_grabber_view.so',
+];
 
-  final String _path;
+class FfiGrabberNativeApi implements GrabberNativeApi {
+  FfiGrabberNativeApi({List<String>? candidates})
+    : _candidates = candidates ?? libraryCandidates(Platform.environment);
+
+  final List<String> _candidates;
   int Function(int)? _status;
   String? error;
+
+  ffi.DynamicLibrary _open() {
+    Object? last;
+    for (final path in _candidates) {
+      try {
+        return ffi.DynamicLibrary.open(path);
+      } on ArgumentError catch (e) {
+        last = e;
+      }
+    }
+    throw StateError('${_candidates.join(', ')}: $last');
+  }
 
   @override
   bool register() {
     try {
-      final lib = ffi.DynamicLibrary.open(_path);
+      final lib = _open();
       lib.lookupFunction<ffi.Int32 Function(), int Function()>('vg_register')();
       _status = lib
           .lookupFunction<ffi.Int32 Function(ffi.Int32), int Function(int)>(
@@ -45,7 +63,7 @@ class FfiGrabberNativeApi implements GrabberNativeApi {
           );
       return true;
     } on Object catch (e) {
-      error = '$_path: $e';
+      error = '$e';
       debugPrint('[video_grabber] $error');
       return false;
     }

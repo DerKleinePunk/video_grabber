@@ -83,6 +83,18 @@ void main() {
     await source.dispose();
   });
 
+  test('Bibliothek: erst VG_LIBRARY, dann LD_LIBRARY_PATH, dann lib/', () {
+    expect(libraryCandidates({'VG_LIBRARY': '/x/y.so'}), [
+      '/x/y.so',
+      'libvideo_grabber_view.so',
+      'lib/libvideo_grabber_view.so',
+    ]);
+    expect(libraryCandidates({}), [
+      'libvideo_grabber_view.so',
+      'lib/libvideo_grabber_view.so',
+    ]);
+  });
+
   test('Reihenfolge der Zustände passt zu native/src/status.h', () {
     expect(GrabberStatus.values.map((s) => s.name).toList(), [
       'connecting',
