@@ -2,10 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'src/grabber_source.dart';
-import 'src/grabber_view.dart';
-import 'src/native_grabber_source.dart';
-import 'src/test_pattern_source.dart';
+import 'video_grabber.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
