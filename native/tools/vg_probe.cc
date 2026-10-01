@@ -4,7 +4,9 @@
 
 #include <chrono>
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
+#include <string>
 #include <vector>
 
 #include "uyvy.h"
@@ -14,6 +16,7 @@ int main(int argc, char** argv) {
   vg::CaptureConfig cfg;
   if (argc > 1) cfg.device = argv[1];
   if (argc > 2) cfg.input = static_cast<uint32_t>(std::atoi(argv[2]));
+  if (const char* n = std::getenv("VG_NORM")) cfg.pal = std::string(n) == "pal";
   const int seconds = argc > 3 ? std::atoi(argv[3]) : 3;
   const char* out_path = argc > 4 ? argv[4] : nullptr;
 
@@ -29,7 +32,8 @@ int main(int argc, char** argv) {
               cfg.input);
 
   const auto start = std::chrono::steady_clock::now();
-  int frames = 0, timeouts = 0;
+  int frames = 0, timeouts = 0, incomplete = 0;
+  size_t min_bytes = SIZE_MAX;
   uint64_t first_us = 0, last_us = 0;
   while (std::chrono::steady_clock::now() - start <
          std::chrono::seconds(seconds)) {
@@ -38,6 +42,19 @@ int main(int argc, char** argv) {
       case vg::WaitResult::kFrame:
         if (frames == 0) first_us = f.timestamp_us;
         last_us = f.timestamp_us;
+        if (!f.complete()) {
+          ++incomplete;
+          if (const char* d = std::getenv("VG_DUMP_INCOMPLETE")) {
+            if (incomplete == 3) {
+              if (FILE* o = std::fopen(d, "wb")) {
+                std::fwrite(f.data, 1, f.stride * f.height, o);
+                std::fclose(o);
+                std::printf("unvollständig (%zu Byte) nach %s\n", f.bytes, d);
+              }
+            }
+          }
+        }
+        if (f.bytes < min_bytes) min_bytes = f.bytes;
         if (frames == 0 && out_path != nullptr) {
           const uint32_t h = vg::OutputHeight(f.height, vg::Field::kTop);
           std::vector<uint8_t> y(size_t{f.width} * h), uv(y.size());
@@ -66,7 +83,8 @@ int main(int argc, char** argv) {
   }
   const double fps =
       frames > 1 ? (frames - 1) * 1e6 / double(last_us - first_us) : 0.0;
-  std::printf("%d Bilder (%.2f/s), %d x 500 ms ohne Bild\n", frames, fps,
-              timeouts);
+  std::printf("%d Bilder (%.2f/s), davon %d unvollständig (kleinstes %zu von %zu Byte), %d x 500 ms ohne Bild\n",
+              frames, fps, incomplete, min_bytes,
+              size_t{cap.width()} * 2 * cap.height(), timeouts);
   return frames > 0 ? 0 : 1;
 }
