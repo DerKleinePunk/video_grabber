@@ -1,0 +1,117 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:video_grabber/main.dart';
+import 'package:video_grabber/src/grabber_source.dart';
+import 'package:video_grabber/src/grabber_view.dart';
+import 'package:video_grabber/src/test_pattern_source.dart';
+
+class FakeSource implements GrabberSource {
+  final ValueNotifier<GrabberState> notifier = ValueNotifier(
+    const GrabberState(GrabberStatus.connecting),
+  );
+  int starts = 0;
+  bool disposed = false;
+
+  @override
+  ValueListenable<GrabberState> get state => notifier;
+
+  @override
+  Future<void> start() async => starts++;
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Widget buildPicture(BuildContext context) =>
+      const ColoredBox(key: ValueKey('picture'), color: Colors.red);
+
+  @override
+  Future<void> dispose() async => disposed = true;
+}
+
+Widget _wrap(GrabberSource source, {Size size = const Size(1024, 600)}) =>
+    MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(size: size),
+        child: Scaffold(body: GrabberView(source: source)),
+      ),
+    );
+
+String _message(WidgetTester tester) =>
+    tester.widget<Text>(find.byKey(const ValueKey('grabber-message'))).data!;
+
+void main() {
+  testWidgets('zeigt je Zustand den passenden Hinweis und kein Bild', (
+    tester,
+  ) async {
+    final source = FakeSource();
+    await tester.pumpWidget(_wrap(source));
+
+    final expected = {
+      GrabberStatus.connecting: 'Verbinde …',
+      GrabberStatus.noSignal: 'Kein Signal',
+      GrabberStatus.deviceMissing: 'Kamera nicht angeschlossen',
+    };
+    for (final entry in expected.entries) {
+      source.notifier.value = GrabberState(entry.key);
+      await tester.pump();
+      expect(_message(tester), entry.value);
+      expect(find.byKey(const ValueKey('picture')), findsNothing);
+    }
+
+    source.notifier.value = const GrabberState(
+      GrabberStatus.error,
+      error: 'v4l2src: busy',
+    );
+    await tester.pump();
+    expect(_message(tester), 'Fehler: v4l2src: busy');
+  });
+
+  testWidgets('zeigt das Bild nur beim Abspielen', (tester) async {
+    final source = FakeSource();
+    await tester.pumpWidget(_wrap(source));
+    expect(find.byKey(const ValueKey('picture')), findsNothing);
+
+    source.notifier.value = const GrabberState(GrabberStatus.playing);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('picture')), findsOneWidget);
+    expect(find.byKey(const ValueKey('grabber-message')), findsNothing);
+
+    source.notifier.value = const GrabberState(GrabberStatus.noSignal);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('picture')), findsNothing);
+  });
+
+  testWidgets('hält 4:3 auf dem 1024x600-Bildschirm ein', (tester) async {
+    tester.view.physicalSize = const Size(1024, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final source = FakeSource()
+      ..notifier.value = const GrabberState(GrabberStatus.playing);
+    await tester.pumpWidget(_wrap(source));
+
+    final size = tester.getSize(find.byKey(const ValueKey('picture')));
+    expect(size.width / size.height, closeTo(4 / 3, 0.001));
+    expect(size.height, 600);
+    expect(size.width, 800);
+  });
+
+  testWidgets('App startet die Quelle und gibt sie wieder frei', (
+    tester,
+  ) async {
+    final source = FakeSource();
+    await tester.pumpWidget(VideoGrabberApp(source: source));
+    expect(source.starts, 1);
+
+    await tester.pumpWidget(const SizedBox());
+    expect(source.disposed, isTrue);
+  });
+
+  testWidgets('Testbild zeigt die Farbbalken', (tester) async {
+    final source = TestPatternSource();
+    await tester.pumpWidget(VideoGrabberApp(source: source));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('test-pattern')), findsOneWidget);
+  });
+}
