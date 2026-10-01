@@ -1,12 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'src/grabber_source.dart';
 import 'src/grabber_view.dart';
+import 'src/native_grabber_source.dart';
 import 'src/test_pattern_source.dart';
 
 void main() {
-  // Bis die Quelle am Gerät steht (docs/plan.md, Schritt 2): Testbild.
-  runApp(VideoGrabberApp(source: TestPatternSource()));
+  WidgetsFlutterBinding.ensureInitialized();
+  // VG_TEST_PATTERN=1 zeigt Farbbalken statt des Grabbers (Bau und Start
+  // prüfen ohne Gerät).
+  final GrabberSource source = Platform.environment['VG_TEST_PATTERN'] != null
+      ? TestPatternSource()
+      : NativeGrabberSource();
+  runApp(VideoGrabberApp(source: source));
 }
 
 class VideoGrabberApp extends StatefulWidget {
@@ -36,7 +44,10 @@ class _VideoGrabberAppState extends State<VideoGrabberApp> {
     return MaterialApp(
       title: 'Video-Grabber',
       debugShowCheckedModeBanner: false,
-      home: Scaffold(body: GrabberView(source: widget.source)),
+      home: Scaffold(
+        backgroundColor: Colors.black,
+        body: GrabberView(source: widget.source),
+      ),
     );
   }
 }

@@ -1,4 +1,28 @@
-# Entwurf: Flutter-Fenster mit dem Bild des Video-Grabbers (emb_cli)
+# Plan: Flutter-Fenster mit dem Bild des Video-Grabbers (emb_cli)
+
+## Stand 01.10.2026: Weg C (Michael 10:24)
+
+Eigenes Platform-View-Plugin für ivi-homescreen, **ohne GStreamer**:
+
+- `native/src/v4l2_capture.*`: V4L2 direkt (Eingang, PAL, UYVY, mmap). Ohne Quelle liefert der STK1160 keine
+  Bilder, „Kein Signal“ ist deshalb eine Frist (`status.*`, 1 s).
+- `native/src/uyvy.*`: oberes Halbbild UYVY → NV16 (720x288). Die vc4-Ebenen des Pi 4 zeigen NV16 direkt.
+- `native/src/grabber_view.cc`: `libvideo_grabber_view.so` über `libihs_shared` (`ihs/platform_view.h`). Ring aus
+  drei DRM-Dumb-Buffern, `ihs_pv_submit`. Die Shell legt das Bild auf eine KMS-Ebene oder zeichnet es als Textur.
+  `SOFTWARE_SHM` ist unter drm-kms-egl nicht verdrahtet (geprüft im Quelltext 522e1d4), daher gleich dma-buf.
+- Dart: `NativeGrabberSource` lädt die Bibliothek (`VG_LIBRARY`, Vorgabe `lib/libvideo_grabber_view.so`), legt die
+  View wie `pv_bench` an und fragt `vg_status` ab. Gerät/Eingang/Norm über `VG_DEVICE`, `VG_INPUT`, `VG_NORM`.
+
+Auf jeep-pi (drm-kms-egl, 1024x600): Verhandlung NV16 über dma-buf-Import, View 800x600 (4:3), ohne Quelle
+„Kein Signal“ (`docs/jeep-pi-kein-signal.png`, mit `tools/drm_shot_planes.py`). **Noch nicht gesehen:** ein echtes
+Bild (keine Quelle am gelben Stecker), Abziehen im Betrieb, Verzögerung.
+
+Bauen: siehe README.
+
+---
+
+Ursprünglicher Entwurf:
+
 
 Stand: 01.10.2026, flutter-local-map. Auftrag: 2026-10-01_0901_michael_video-grabber-projekt.md. Ton bleibt außen vor.
 

@@ -24,22 +24,32 @@ class GrabberView extends StatelessWidget {
       child: ValueListenableBuilder<GrabberState>(
         valueListenable: source.state,
         builder: (context, state, _) {
+          // Das Bild bleibt immer eingebaut: Bei einer nativen Quelle hängt
+          // die Aufnahme an der View, sie darf beim Statuswechsel nicht weg.
           return Center(
             child: AspectRatio(
               aspectRatio: state.aspectRatio,
-              child: state.status == GrabberStatus.playing
-                  ? source.buildPicture(context)
-                  : Center(
-                      child: Text(
-                        messageFor(state),
-                        key: const ValueKey('grabber-message'),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 28,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  source.buildPicture(context),
+                  if (state.status != GrabberStatus.playing)
+                    ColoredBox(
+                      color: Colors.black,
+                      child: Center(
+                        child: Text(
+                          messageFor(state),
+                          key: const ValueKey('grabber-message'),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 28,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
+                ],
+              ),
             ),
           );
         },

@@ -56,7 +56,6 @@ void main() {
       source.notifier.value = GrabberState(entry.key);
       await tester.pump();
       expect(_message(tester), entry.value);
-      expect(find.byKey(const ValueKey('picture')), findsNothing);
     }
 
     source.notifier.value = const GrabberState(
@@ -67,20 +66,28 @@ void main() {
     expect(_message(tester), 'Fehler: v4l2src: busy');
   });
 
-  testWidgets('zeigt das Bild nur beim Abspielen', (tester) async {
-    final source = FakeSource();
-    await tester.pumpWidget(_wrap(source));
-    expect(find.byKey(const ValueKey('picture')), findsNothing);
+  testWidgets(
+    'Bild bleibt eingebaut, der Hinweis liegt nur ohne Bild darüber',
+    (tester) async {
+      final source = FakeSource();
+      await tester.pumpWidget(_wrap(source));
+      final picture = find.byKey(const ValueKey('picture'));
+      expect(picture, findsOneWidget);
+      final element = tester.element(picture);
+      expect(find.byKey(const ValueKey('grabber-message')), findsOneWidget);
 
-    source.notifier.value = const GrabberState(GrabberStatus.playing);
-    await tester.pump();
-    expect(find.byKey(const ValueKey('picture')), findsOneWidget);
-    expect(find.byKey(const ValueKey('grabber-message')), findsNothing);
+      source.notifier.value = const GrabberState(GrabberStatus.playing);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('grabber-message')), findsNothing);
+      // Dieselbe View, nicht neu angelegt: die Aufnahme hängt daran.
+      expect(tester.element(picture), same(element));
 
-    source.notifier.value = const GrabberState(GrabberStatus.noSignal);
-    await tester.pump();
-    expect(find.byKey(const ValueKey('picture')), findsNothing);
-  });
+      source.notifier.value = const GrabberState(GrabberStatus.noSignal);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('grabber-message')), findsOneWidget);
+      expect(tester.element(picture), same(element));
+    },
+  );
 
   testWidgets('hält 4:3 auf dem 1024x600-Bildschirm ein', (tester) async {
     tester.view.physicalSize = const Size(1024, 600);
