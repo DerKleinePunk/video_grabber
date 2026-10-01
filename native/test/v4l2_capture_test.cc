@@ -239,4 +239,14 @@ TEST_CASE(schliessen_stoppt_strom_und_gibt_speicher_frei) {
   EXPECT(cap.Wait(10, &f) == vg::WaitResult::kGone);
 }
 
+TEST_CASE(unvollstaendiges_bild_wird_erkannt) {
+  vg::Frame f;
+  f.stride = 1440;
+  f.height = 480;
+  f.bytes = 1440u * 480u;
+  EXPECT(f.complete());
+  f.bytes = 689156;  // gemessen auf jeep-pi mit Paketverlust
+  EXPECT(!f.complete());
+}
+
 int main() { return check::RunAll(); }

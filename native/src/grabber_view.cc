@@ -135,7 +135,11 @@ class GrabberView {
   // Nach Rückkehr läuft kein ihs_pv_submit mehr (Vorgabe aus platform_view.h).
   void Stop() {
     stop_.store(true);
-    if (thread_.joinable()) thread_.join();
+    if (thread_.joinable()) {
+      thread_.join();
+      std::fprintf(stderr, "[video_grabber] view %d: %llu incomplete frames dropped\n",
+                   id_, static_cast<unsigned long long>(incomplete_));
+    }
     for (auto& b : ring_) FreeBuffer(&b);
   }
 
@@ -177,7 +181,11 @@ class GrabberView {
       publish();
       switch (r) {
         case WaitResult::kFrame:
-          if (!suspended_.load()) Submit(f);
+          if (!f.complete()) {
+            ++incomplete_;
+          } else if (!suspended_.load()) {
+            Submit(f);
+          }
           cap.Release(f);
           break;
         case WaitResult::kTimeout:
@@ -261,6 +269,7 @@ class GrabberView {
   uint32_t ring_height_ = 0;
   int next_ = 0;
   bool submit_error_logged_ = false;
+  uint64_t incomplete_ = 0;
 };
 
 void OnDispose(void* user_data) {

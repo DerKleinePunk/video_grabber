@@ -43,6 +43,10 @@ struct Frame {
   size_t stride = 0;
   uint32_t index = 0;   // für Release()
   uint64_t timestamp_us = 0;
+
+  // Fehlen am USB Pakete, liefert der STK1160 ein kürzeres Bild; der Rest ist
+  // dann verschoben. Solche Bilder nicht zeigen.
+  bool complete() const { return bytes >= stride * height; }
 };
 
 enum class WaitResult {
