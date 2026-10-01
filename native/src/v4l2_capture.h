@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+#include "uyvy.h"
+
 namespace vg {
 
 // Dünne Hülle um die Aufrufe, die die Aufnahme braucht. Rückgabewerte und
@@ -47,6 +49,9 @@ struct Frame {
   uint32_t index = 0;   // für Release()
   uint64_t timestamp_us = 0;
 
+  Packing packing = Packing::kUyvy;
+  bool interlaced = true;  // Grabber: ja, USB-Kamera: nein (Vollbild)
+
   // Fehlen am USB Pakete, liefert der STK1160 ein kürzeres Bild; der Rest ist
   // dann verschoben. Solche Bilder nicht zeigen.
   bool complete() const { return bytes >= stride * height; }
@@ -77,6 +82,8 @@ class V4l2Capture {
 
   bool is_open() const { return fd_ >= 0; }
   uint32_t width() const { return width_; }
+  // Grabber (UYVY, Norm, Eingang, Halbbilder) oder USB-Kamera (YUYV).
+  bool is_usb_camera() const { return packing_ == Packing::kYuyv; }
   uint32_t height() const { return height_; }
   const std::string& last_error() const { return last_error_; }
 
@@ -89,6 +96,8 @@ class V4l2Capture {
   uint32_t width_ = 0;
   uint32_t height_ = 0;
   size_t stride_ = 0;
+  Packing packing_ = Packing::kUyvy;
+  bool interlaced_ = true;
   struct Mapping {
     void* addr;
     size_t length;

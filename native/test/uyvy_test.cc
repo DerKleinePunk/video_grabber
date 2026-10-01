@@ -90,6 +90,29 @@ TEST_CASE(strides_mit_rand_werden_beachtet_und_nicht_ueberschrieben) {
   }
 }
 
+TEST_CASE(yuyv_wird_richtig_umsortiert) {
+  // Y0 U Y1 V je Paar: Y = 10*Zeile+Spalte, U = 100+Zeile, V = 200+Zeile.
+  const uint32_t w = 4, h = 2;
+  std::vector<uint8_t> src(w * 2 * h);
+  for (uint32_t r = 0; r < h; ++r) {
+    for (uint32_t x = 0; x < w; x += 2) {
+      uint8_t* p = src.data() + r * w * 2 + x * 2;
+      p[0] = static_cast<uint8_t>(10 * r + x);
+      p[1] = static_cast<uint8_t>(100 + r);
+      p[2] = static_cast<uint8_t>(10 * r + x + 1);
+      p[3] = static_cast<uint8_t>(200 + r);
+    }
+  }
+  std::vector<uint8_t> y(w * h), uv(w * h);
+  EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kBoth, y.data(),
+                        w, uv.data(), w, vg::Packing::kYuyv));
+  for (uint32_t r = 0; r < h; ++r) {
+    for (uint32_t x = 0; x < w; ++x) EXPECT(y[r * w + x] == 10 * r + x);
+    EXPECT(uv[r * w] == 100 + r);
+    EXPECT(uv[r * w + 1] == 200 + r);
+  }
+}
+
 TEST_CASE(pal_halbbild_hat_288_zeilen) {
   EXPECT(vg::OutputHeight(576, vg::Field::kTop) == 288);
   EXPECT(vg::OutputHeight(576, vg::Field::kBoth) == 576);

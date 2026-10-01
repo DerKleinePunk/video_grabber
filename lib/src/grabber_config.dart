@@ -4,7 +4,10 @@ import 'package:flutter/foundation.dart';
 
 enum VideoNorm { pal, ntsc }
 
-/// Einstellungen der Kamera. Gespeichert werden sie nicht hier, sondern vom
+/// Einstellungen der Kamera. Norm, Eingang und Breite gelten für den Grabber
+/// (STK1160, UYVY); eine USB-Kamera (uvcvideo, YUYV) erkennt das Plugin selbst
+/// und nimmt 640x480 als Vollbild, dort zählt nur [device].
+/// Gespeichert werden sie nicht hier, sondern vom
 /// Backend (carnine2); die App reicht sie nur an die native View weiter.
 @immutable
 class GrabberConfig {

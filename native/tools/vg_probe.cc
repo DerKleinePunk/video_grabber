@@ -29,8 +29,9 @@ int main(int argc, char** argv) {
                 cap.last_error().c_str());
     return 2;
   }
-  std::printf("offen: %ux%u, Eingang %u\n", cap.width(), cap.height(),
-              cfg.input);
+  std::printf("offen: %s %ux%u\n",
+              cap.is_usb_camera() ? "USB-Kamera YUYV" : "Grabber UYVY",
+              cap.width(), cap.height());
 
   const auto start = std::chrono::steady_clock::now();
   int frames = 0, timeouts = 0, incomplete = 0;
@@ -57,10 +58,11 @@ int main(int argc, char** argv) {
         }
         if (f.bytes < min_bytes) min_bytes = f.bytes;
         if (frames == 0 && out_path != nullptr) {
-          const uint32_t h = vg::OutputHeight(f.height, vg::Field::kTop);
+          const vg::Field field = f.interlaced ? vg::Field::kTop : vg::Field::kBoth;
+          const uint32_t h = vg::OutputHeight(f.height, field);
           std::vector<uint8_t> y(size_t{f.width} * h), uv(y.size());
-          vg::UyvyToNv16(f.data, f.stride, f.width, f.height, vg::Field::kTop,
-                         y.data(), f.width, uv.data(), f.width);
+          vg::UyvyToNv16(f.data, f.stride, f.width, f.height, field, y.data(),
+                         f.width, uv.data(), f.width, f.packing);
           if (FILE* o = std::fopen(out_path, "wb")) {
             std::fwrite(y.data(), 1, y.size(), o);
             std::fwrite(uv.data(), 1, uv.size(), o);

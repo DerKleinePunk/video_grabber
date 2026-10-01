@@ -169,12 +169,16 @@ class GrabberView {
           Sleep(1000);
           continue;
         }
-        if (!EnsureRing(cap.width(), OutputHeight(cap.height(), Field::kTop))) {
+        field_ = cap.is_usb_camera() ? Field::kBoth : Field::kTop;
+        if (!EnsureRing(cap.width(), OutputHeight(cap.height(), field_))) {
           std::fprintf(stderr, "[video_grabber] view %d: no dumb buffers\n",
                        id_);
           PublishStatus(id_, Status::kError);
           return;
         }
+        std::fprintf(stderr, "[video_grabber] view %d: %s %ux%u -> %ux%u\n",
+                     id_, cap.is_usb_camera() ? "USB camera YUYV" : "grabber UYVY",
+                     cap.width(), cap.height(), ring_width_, ring_height_);
       }
       Frame f;
       const WaitResult r = cap.Wait(200, &f);
@@ -221,8 +225,9 @@ class GrabberView {
     DumbBuffer& b = ring_[next_];
     WaitRelease(&b, 40);
     const uint32_t h = ring_height_;
-    if (!UyvyToNv16(f.data, f.stride, f.width, f.height, Field::kTop, b.map,
-                    b.pitch, b.map + size_t{b.pitch} * h, b.pitch)) {
+    if (!UyvyToNv16(f.data, f.stride, f.width, f.height, field_, b.map,
+                    b.pitch, b.map + size_t{b.pitch} * h, b.pitch,
+                    f.packing)) {
       return;
     }
     const int fd = ::dup(b.fd);
@@ -269,6 +274,7 @@ class GrabberView {
   uint32_t ring_width_ = 0;
   uint32_t ring_height_ = 0;
   int next_ = 0;
+  Field field_ = Field::kTop;
   bool submit_error_logged_ = false;
   uint64_t incomplete_ = 0;
 };

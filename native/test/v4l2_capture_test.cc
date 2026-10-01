@@ -30,6 +30,8 @@ struct FakeState {
   int poll_errno = 0;
   int last_errno = 0;
   std::vector<std::vector<uint8_t>> memory;
+  std::vector<uint32_t> formats{V4L2_PIX_FMT_UYVY};
+  uint32_t field = V4L2_FIELD_INTERLACED;
 };
 
 class FakeSys : public vg::Sys {
@@ -52,6 +54,15 @@ class FakeSys : public vg::Sys {
       return -1;
     }
     switch (req) {
+      case VIDIOC_ENUM_FMT: {
+        auto* d = static_cast<v4l2_fmtdesc*>(arg);
+        if (d->index >= s_->formats.size()) {
+          s_->last_errno = EINVAL;
+          return -1;
+        }
+        d->pixelformat = s_->formats[d->index];
+        return 0;
+      }
       case VIDIOC_S_INPUT:
         s_->input = *static_cast<int*>(arg);
         return 0;
@@ -63,6 +74,9 @@ class FakeSys : public vg::Sys {
         s_->width = f->fmt.pix.width;
         s_->height = f->fmt.pix.height;
         f->fmt.pix.bytesperline = f->fmt.pix.width * 2;
+        f->fmt.pix.field = f->fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY
+                               ? s_->field
+                               : static_cast<uint32_t>(V4L2_FIELD_NONE);
         return 0;
       }
       case VIDIOC_REQBUFS: {
@@ -247,6 +261,48 @@ TEST_CASE(schliessen_stoppt_strom_und_gibt_speicher_frei) {
   EXPECT(s.closed);
   vg::Frame f;
   EXPECT(cap.Wait(10, &f) == vg::WaitResult::kGone);
+}
+
+TEST_CASE(usb_kamera_mit_yuyv_ohne_norm_und_eingang) {
+  FakeState s;
+  s.formats = {V4L2_PIX_FMT_MJPEG, V4L2_PIX_FMT_YUYV};
+  auto cap = Make(&s);
+  EXPECT(cap.Open({}) == vg::OpenResult::kOk);
+  EXPECT(cap.is_usb_camera());
+  EXPECT(s.input == -1);  // kein VIDIOC_S_INPUT
+  EXPECT(s.std == 0);     // kein VIDIOC_S_STD
+  EXPECT(cap.width() == 640 && cap.height() == 480);
+  s.queued.clear();
+  s.ready = {1};
+  vg::Frame f;
+  EXPECT(cap.Wait(100, &f) == vg::WaitResult::kFrame);
+  EXPECT(f.packing == vg::Packing::kYuyv);
+  EXPECT(!f.interlaced);
+  EXPECT(f.complete());
+}
+
+TEST_CASE(grabber_bleibt_bei_uyvy_auch_wenn_yuyv_da_ist) {
+  FakeState s;
+  s.formats = {V4L2_PIX_FMT_YUYV, V4L2_PIX_FMT_UYVY};
+  auto cap = Make(&s);
+  EXPECT(cap.Open({}) == vg::OpenResult::kOk);
+  EXPECT(!cap.is_usb_camera());
+  EXPECT(s.input == 0);
+  s.queued.clear();
+  s.ready = {0};
+  vg::Frame f;
+  EXPECT(cap.Wait(100, &f) == vg::WaitResult::kFrame);
+  EXPECT(f.packing == vg::Packing::kUyvy);
+  EXPECT(f.interlaced);
+}
+
+TEST_CASE(nur_mjpeg_wird_abgelehnt) {
+  FakeState s;
+  s.formats = {V4L2_PIX_FMT_MJPEG};
+  auto cap = Make(&s);
+  EXPECT(cap.Open({}) == vg::OpenResult::kError);
+  EXPECT(!cap.is_open());
+  EXPECT(cap.last_error().find("UYVY") != std::string::npos);
 }
 
 TEST_CASE(unvollstaendiges_bild_wird_erkannt) {

@@ -14,7 +14,8 @@ bool UyvyToNv16(const uint8_t* src,
                 uint8_t* dst_y,
                 size_t y_stride,
                 uint8_t* dst_uv,
-                size_t uv_stride) {
+                size_t uv_stride,
+                Packing packing) {
   if (src == nullptr || dst_y == nullptr || dst_uv == nullptr || width == 0 ||
       (width % 2) != 0 || src_stride < size_t{width} * 2 ||
       y_stride < width || uv_stride < width) {
@@ -28,13 +29,24 @@ bool UyvyToNv16(const uint8_t* src,
     const uint8_t* s = src + (first + row * step) * src_stride;
     uint8_t* y = dst_y + row * y_stride;
     uint8_t* uv = dst_uv + row * uv_stride;
-    // Je 4 Byte U0 Y0 V0 Y1 → Y: Y0 Y1, CbCr: U0 V0.
-    for (uint32_t x = 0; x < width; x += 2) {
-      uv[x] = s[0];
-      y[x] = s[1];
-      uv[x + 1] = s[2];
-      y[x + 1] = s[3];
-      s += 4;
+    if (packing == Packing::kUyvy) {
+      // Je 4 Byte U0 Y0 V0 Y1 → Y: Y0 Y1, CbCr: U0 V0.
+      for (uint32_t x = 0; x < width; x += 2) {
+        uv[x] = s[0];
+        y[x] = s[1];
+        uv[x + 1] = s[2];
+        y[x + 1] = s[3];
+        s += 4;
+      }
+    } else {
+      // Je 4 Byte Y0 U0 Y1 V0.
+      for (uint32_t x = 0; x < width; x += 2) {
+        y[x] = s[0];
+        uv[x] = s[1];
+        y[x + 1] = s[2];
+        uv[x + 1] = s[3];
+        s += 4;
+      }
     }
   }
   return true;

@@ -72,29 +72,59 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
                                           : OpenResult::kError;
   }
 
-  int input = static_cast<int>(config.input);
-  if (sys_->Ioctl(fd_, VIDIOC_S_INPUT, &input) < 0) {
-    return Fail("VIDIOC_S_INPUT");
+  // Welche Formate bietet das Gerät? UYVY = Grabber (STK1160), sonst YUYV =
+  // USB-Kamera (uvcvideo). MJPEG wird nicht unterstützt.
+  bool has_uyvy = false, has_yuyv = false;
+  for (uint32_t i = 0; i < 32; ++i) {
+    v4l2_fmtdesc d{};
+    d.index = i;
+    d.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    if (sys_->Ioctl(fd_, VIDIOC_ENUM_FMT, &d) < 0) break;
+    has_uyvy = has_uyvy || d.pixelformat == V4L2_PIX_FMT_UYVY;
+    has_yuyv = has_yuyv || d.pixelformat == V4L2_PIX_FMT_YUYV;
   }
-  v4l2_std_id std = config.pal ? V4L2_STD_PAL : V4L2_STD_NTSC;
-  if (sys_->Ioctl(fd_, VIDIOC_S_STD, &std) < 0) {
-    return Fail("VIDIOC_S_STD");
-  }
-
-  v4l2_format fmt{};
-  fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  fmt.fmt.pix.width = config.width;
-  fmt.fmt.pix.height = config.pal ? 576 : 480;
-  fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
-  fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
-  if (sys_->Ioctl(fd_, VIDIOC_S_FMT, &fmt) < 0) {
-    return Fail("VIDIOC_S_FMT");
-  }
-  if (fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_UYVY) {
-    last_error_ = "Grabber liefert kein UYVY";
+  if (!has_uyvy && !has_yuyv) {
+    last_error_ = "Gerät liefert weder UYVY noch YUYV";
     Close();
     return OpenResult::kError;
   }
+  packing_ = has_uyvy ? Packing::kUyvy : Packing::kYuyv;
+
+  v4l2_format fmt{};
+  fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  if (packing_ == Packing::kUyvy) {
+    int input = static_cast<int>(config.input);
+    if (sys_->Ioctl(fd_, VIDIOC_S_INPUT, &input) < 0) {
+      return Fail("VIDIOC_S_INPUT");
+    }
+    v4l2_std_id std = config.pal ? V4L2_STD_PAL : V4L2_STD_NTSC;
+    if (sys_->Ioctl(fd_, VIDIOC_S_STD, &std) < 0) {
+      return Fail("VIDIOC_S_STD");
+    }
+    fmt.fmt.pix.width = config.width;
+    fmt.fmt.pix.height = config.pal ? 576 : 480;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
+    fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
+  } else {
+    // USB-Kamera: 640x480 hat bei der Jieli 1224:2a25 25/s, 1280x720 nur 5/s.
+    fmt.fmt.pix.width = 640;
+    fmt.fmt.pix.height = 480;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+    fmt.fmt.pix.field = V4L2_FIELD_NONE;
+  }
+  if (sys_->Ioctl(fd_, VIDIOC_S_FMT, &fmt) < 0) {
+    return Fail("VIDIOC_S_FMT");
+  }
+  const uint32_t want = packing_ == Packing::kUyvy ? V4L2_PIX_FMT_UYVY
+                                                   : V4L2_PIX_FMT_YUYV;
+  if (fmt.fmt.pix.pixelformat != want) {
+    last_error_ = "Gerät hat das Format nicht übernommen";
+    Close();
+    return OpenResult::kError;
+  }
+  interlaced_ = fmt.fmt.pix.field == V4L2_FIELD_INTERLACED ||
+                fmt.fmt.pix.field == V4L2_FIELD_INTERLACED_TB ||
+                fmt.fmt.pix.field == V4L2_FIELD_INTERLACED_BT;
   width_ = fmt.fmt.pix.width;
   height_ = fmt.fmt.pix.height;
   stride_ = fmt.fmt.pix.bytesperline != 0 ? fmt.fmt.pix.bytesperline
@@ -168,6 +198,8 @@ WaitResult V4l2Capture::Wait(int timeout_ms, Frame* frame) {
   frame->height = height_;
   frame->stride = stride_;
   frame->index = buf.index;
+  frame->packing = packing_;
+  frame->interlaced = interlaced_;
   frame->timestamp_us = static_cast<uint64_t>(buf.timestamp.tv_sec) * 1000000u +
                         static_cast<uint64_t>(buf.timestamp.tv_usec);
   return WaitResult::kFrame;

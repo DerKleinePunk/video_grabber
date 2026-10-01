@@ -21,7 +21,10 @@ enum class Field {
 // Zeilen im Ergebnis für @p height Quellzeilen.
 uint32_t OutputHeight(uint32_t height, Field field);
 
-// Wandelt ein UYVY-Bild um. @p width muss gerade sein. Strides in Bytes:
+// Gepacktes 4:2:2: UYVY (STK1160) oder YUYV (USB-Kameras, uvcvideo).
+enum class Packing { kUyvy, kYuyv };
+
+// Wandelt ein gepacktes Bild in NV16 um (Vorgabe UYVY). @p width muss gerade sein. Strides in Bytes:
 // UYVY braucht width * 2 je Zeile, Y width, CbCr width.
 // Gibt false zurück, wenn ein Argument nicht passt; dann ist nichts
 // geschrieben.
@@ -33,6 +36,7 @@ bool UyvyToNv16(const uint8_t* src,
                 uint8_t* dst_y,
                 size_t y_stride,
                 uint8_t* dst_uv,
-                size_t uv_stride);
+                size_t uv_stride,
+                Packing packing = Packing::kUyvy);
 
 }  // namespace vg
