@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Bildschirmfoto vom DRM-Scanout über alle Ebenen (Pi 4, vc4).
+"""Screenshot of the DRM scanout across all planes (Pi 4, vc4).
 
-Unter drm-kms-egl verteilt ivi-homescreen eine Szene mit Platform-View auf
-mehrere KMS-Ebenen (Flutter-Teile und das Video getrennt). Ein Foto nur der
-Hauptebene ist dann schwarz. Dieses Skript liest jede belegte Ebene des
-aktiven CRTC, setzt sie nach zpos übereinander (ARGB mit Alpha, NV16/NV12 als
-BT.601 limited) und schreibt ein PNG.
+Under drm-kms-egl ivi-homescreen spreads a scene with a platform view over
+several KMS planes (Flutter parts and the video separately). A capture of the
+primary plane alone is then black. This script reads every used plane of the
+active CRTC, stacks them by zpos (ARGB with alpha, NV16/NV12 as BT.601
+limited) and writes a PNG.
 
-Aufruf: sudo python3 drm_shot_planes.py ausgabe.png [/dev/dri/cardN] [-v]
-Braucht python3-numpy und root (DRM-Handles).
+Usage: sudo python3 drm_shot_planes.py output.png [/dev/dri/cardN] [-v]
+Needs python3-numpy and root (DRM handles).
 """
 import ctypes
 import ctypes.util
@@ -96,14 +96,14 @@ def read_fb(fd, fb):
 
 
 def to_rgba(fb, data):
-    """Liefert ein HxWx4-Bild (RGBA, float 0..1)."""
+    """Returns an HxWx4 image (RGBA, float 0..1)."""
     w, h = fb.width, fb.height
     fmt = fb.pixel_format
     if fmt in (XR24, AR24, XB24, AB24):
         pitch, off = fb.pitches[0], fb.offsets[0]
         px = data[off:off + pitch * h].reshape(h, pitch)[:, :w * 4]
         px = px.reshape(h, w, 4).astype(np.float32) / 255.0
-        if fmt in (XR24, AR24):  # B G R A im Speicher
+        if fmt in (XR24, AR24):  # B G R A in memory
             rgb = px[..., [2, 1, 0]]
         else:                    # R G B A
             rgb = px[..., [0, 1, 2]]
@@ -126,7 +126,7 @@ def to_rgba(fb, data):
         b = yy + 2.017 * (cb - 128)
         rgb = np.clip(np.stack([r, g, b], axis=2) / 255.0, 0, 1)
         return np.concatenate([rgb, np.ones((h, w, 1), np.float32)], axis=2)
-    raise ValueError(f'Format {fmt:#x} nicht unterstützt')
+    raise ValueError(f'format {fmt:#x} not supported')
 
 
 def apply_rotation(img, rot):
@@ -151,7 +151,7 @@ def scale(img, w, h):
 def shoot(card, verbose):
     fd = os.open(card, os.O_RDWR | os.O_CLOEXEC)
     drm.drmSetClientCap(fd, 2, 1)  # UNIVERSAL_PLANES
-    drm.drmSetClientCap(fd, 3, 1)  # ATOMIC (zpos, SRC_*/CRTC_* lesbar)
+    drm.drmSetClientCap(fd, 3, 1)  # ATOMIC (zpos, SRC_*/CRTC_* readable)
     res = drm.drmModeGetPlaneResources(fd)
     if not res:
         return None
@@ -168,7 +168,7 @@ def shoot(card, verbose):
     if not layers:
         return None
     layers.sort(key=lambda l: (l[0], l[1]))
-    # Größe des Bildschirms: größte Ausdehnung der Ebenen auf dem CRTC.
+    # Screen size: largest extent of the planes on the CRTC.
     sw = max(int(l[3].get('CRTC_X', 0)) + int(l[3].get('CRTC_W', l[2].width))
              for l in layers)
     sh = max(int(l[3].get('CRTC_Y', 0)) + int(l[3].get('CRTC_H', l[2].height))
@@ -176,10 +176,10 @@ def shoot(card, verbose):
     out = np.zeros((sh, sw, 3), np.float32)
     for zpos, pid, fb, pr in layers:
         if fb.modifier != 0:
-            print(f'Ebene {pid}: Modifier {fb.modifier:#x} übersprungen')
+            print(f'plane {pid}: modifier {fb.modifier:#x} skipped')
             continue
         if not fb.handles[0]:
-            sys.exit('kein Handle - als root starten')
+            sys.exit('no handle - run as root')
         img = to_rgba(fb, read_fb(fd, fb))
         sx, sy = pr.get('SRC_X', 0) >> 16, pr.get('SRC_Y', 0) >> 16
         sw_, sh_ = pr.get('SRC_W', fb.width << 16) >> 16, pr.get(
@@ -204,7 +204,7 @@ def shoot(card, verbose):
             out[y0:y1, x0:x1] = part[..., :3] * alpha + out[y0:y1,
                                                             x0:x1] * (1 - alpha)
         if verbose:
-            print(f'Ebene {pid} zpos={zpos} fmt={fb.pixel_format:#x} '
+            print(f'plane {pid} zpos={zpos} fmt={fb.pixel_format:#x} '
                   f'{fb.width}x{fb.height} -> {cw}x{ch}@{cx},{cy}')
     os.close(fd)
     return (np.clip(out, 0, 1) * 255).astype(np.uint8)
@@ -232,7 +232,7 @@ def main():
     img = next((i for i in (shoot(c, verbose) for c in cards)
                 if i is not None), None)
     if img is None:
-        sys.exit('keine belegte Ebene gefunden')
+        sys.exit('no used plane found')
     write_png(out, img)
     print(f'{out}: {img.shape[1]}x{img.shape[0]}')
 

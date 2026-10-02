@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'grabber_source.dart';
 
-/// Farbbalken statt Kamerabild. Damit lassen sich Bau und Start auf dem Pi
-/// prüfen, bevor der Grabber dran ist.
+/// Colour bars instead of a camera picture. Lets you check the build and
+/// start-up on the Pi before the grabber is connected.
 class TestPatternSource implements GrabberSource {
   final ValueNotifier<GrabberState> _state = ValueNotifier(
     const GrabberState(GrabberStatus.connecting),

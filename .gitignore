@@ -47,6 +47,17 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
-# native Bauordner
+# Native build directories
 native/build/
 build-pi/
+
+# No binaries or pictures in the repository
+libapp.so*
+*.so
+*.so.*
+*.o
+*.a
+*.nv16
+*.png
+*.jpg
+*.jpeg

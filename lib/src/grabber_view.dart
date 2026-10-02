@@ -2,23 +2,23 @@ import 'package:flutter/material.dart';
 
 import 'grabber_source.dart';
 
-/// Zeigt das Bild einer [GrabberSource] im richtigen Seitenverhältnis und
-/// sonst einen Hinweis auf schwarzem Grund.
+/// Shows the picture of a [GrabberSource] in the right aspect ratio, and a
+/// message on black otherwise.
 class GrabberView extends StatelessWidget {
   const GrabberView({super.key, required this.source, this.messageBuilder});
 
   final GrabberSource source;
 
-  /// Ersetzt die eingebauten (deutschen) Hinweise, z. B. für Übersetzungen.
-  /// Wird nur aufgerufen, wenn kein Bild läuft.
+  /// Replaces the built-in (English) messages, e.g. for translations.
+  /// Only called while no picture is playing.
   final String Function(GrabberState state)? messageBuilder;
 
   static String messageFor(GrabberState state) => switch (state.status) {
-    GrabberStatus.connecting => 'Verbinde …',
+    GrabberStatus.connecting => 'Connecting …',
     GrabberStatus.playing => '',
-    GrabberStatus.noSignal => 'Kein Signal',
-    GrabberStatus.deviceMissing => 'Kamera nicht angeschlossen',
-    GrabberStatus.error => 'Fehler: ${state.error ?? 'unbekannt'}',
+    GrabberStatus.noSignal => 'No signal',
+    GrabberStatus.deviceMissing => 'Camera not connected',
+    GrabberStatus.error => 'Error: ${state.error ?? 'unknown'}',
   };
 
   @override
@@ -28,8 +28,8 @@ class GrabberView extends StatelessWidget {
       child: ValueListenableBuilder<GrabberState>(
         valueListenable: source.state,
         builder: (context, state, _) {
-          // Das Bild bleibt immer eingebaut: Bei einer nativen Quelle hängt
-          // die Aufnahme an der View, sie darf beim Statuswechsel nicht weg.
+          // The picture always stays in the tree: for a native source the
+          // capture is tied to the view and must survive status changes.
           return Center(
             child: AspectRatio(
               aspectRatio: state.aspectRatio,

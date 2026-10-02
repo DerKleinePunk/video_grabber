@@ -1,6 +1,6 @@
-// Prüfprogramm für das Gerät: öffnet den Grabber, wartet auf Bilder und
-// schreibt auf Wunsch ein Halbbild als NV16-Rohdatei.
-//   vg_probe [/dev/video0] [eingang] [sekunden] [ausgabe.nv16]
+// Device probe: opens the grabber, waits for frames and optionally writes
+// one field as a raw NV16 file.
+//   vg_probe [/dev/video0] [input] [seconds] [output.nv16]
 
 #include <chrono>
 #include <cstdio>
@@ -25,12 +25,12 @@ int main(int argc, char** argv) {
   const auto open = cap.Open(cfg);
   if (open != vg::OpenResult::kOk) {
     std::printf("open: %s (%s)\n",
-                open == vg::OpenResult::kMissing ? "fehlt" : "Fehler",
+                open == vg::OpenResult::kMissing ? "missing" : "error",
                 cap.last_error().c_str());
     return 2;
   }
-  std::printf("offen: %s %ux%u\n",
-              cap.is_usb_camera() ? "USB-Kamera YUYV" : "Grabber UYVY",
+  std::printf("open: %s %ux%u\n",
+              cap.is_usb_camera() ? "USB camera YUYV" : "grabber UYVY",
               cap.width(), cap.height());
 
   const auto start = std::chrono::steady_clock::now();
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
               if (FILE* o = std::fopen(d, "wb")) {
                 std::fwrite(f.data, 1, f.stride * f.height, o);
                 std::fclose(o);
-                std::printf("unvollständig (%zu Byte) nach %s\n", f.bytes, d);
+                std::printf("incomplete (%zu bytes) to %s\n", f.bytes, d);
               }
             }
           }
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
             std::fwrite(y.data(), 1, y.size(), o);
             std::fwrite(uv.data(), 1, uv.size(), o);
             std::fclose(o);
-            std::printf("Halbbild %ux%u NV16 nach %s\n", f.width, h, out_path);
+            std::printf("field %ux%u NV16 to %s\n", f.width, h, out_path);
           }
         }
         ++frames;
@@ -77,16 +77,16 @@ int main(int argc, char** argv) {
         ++timeouts;
         break;
       case vg::WaitResult::kGone:
-        std::printf("Gerät weg\n");
+        std::printf("device gone\n");
         return 3;
       case vg::WaitResult::kError:
-        std::printf("Fehler: %s\n", cap.last_error().c_str());
+        std::printf("error: %s\n", cap.last_error().c_str());
         return 4;
     }
   }
   const double fps =
       frames > 1 ? (frames - 1) * 1e6 / double(last_us - first_us) : 0.0;
-  std::printf("%d Bilder (%.2f/s), davon %d unvollständig (kleinstes %zu von %zu Byte), %d x 500 ms ohne Bild\n",
+  std::printf("%d frames (%.2f/s), %d of them incomplete (smallest %zu of %zu bytes), %d x 500 ms without a frame\n",
               frames, fps, incomplete, min_bytes,
               size_t{cap.width()} * 2 * cap.height(), timeouts);
   return frames > 0 ? 0 : 1;

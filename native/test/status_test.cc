@@ -6,14 +6,14 @@ using vg::OpenResult;
 using vg::Status;
 using vg::WaitResult;
 
-TEST_CASE(nach_dem_oeffnen_verbindet_es) {
+TEST_CASE(after_open_it_is_connecting) {
   vg::StatusTracker t;
   EXPECT(t.status() == Status::kConnecting);
   t.OnOpen(OpenResult::kOk, 100);
   EXPECT(t.status() == Status::kConnecting);
 }
 
-TEST_CASE(ohne_bild_kommt_kein_signal_erst_nach_der_frist) {
+TEST_CASE(without_frames_no_signal_only_after_the_timeout) {
   vg::StatusTracker t(1000);
   t.OnOpen(OpenResult::kOk, 100);
   t.OnWait(WaitResult::kTimeout, 600);
@@ -22,7 +22,7 @@ TEST_CASE(ohne_bild_kommt_kein_signal_erst_nach_der_frist) {
   EXPECT(t.status() == Status::kNoSignal);
 }
 
-TEST_CASE(bild_heisst_abspielen_und_signalverlust_wird_erkannt) {
+TEST_CASE(frame_means_playing_and_signal_loss_is_detected) {
   vg::StatusTracker t(1000);
   t.OnOpen(OpenResult::kOk, 0);
   t.OnWait(WaitResult::kFrame, 50);
@@ -36,7 +36,7 @@ TEST_CASE(bild_heisst_abspielen_und_signalverlust_wird_erkannt) {
   EXPECT(t.frames() == 2);
 }
 
-TEST_CASE(fehlendes_oder_abgezogenes_geraet) {
+TEST_CASE(missing_or_unplugged_device) {
   vg::StatusTracker t;
   t.OnOpen(OpenResult::kMissing, 0);
   EXPECT(t.status() == Status::kDeviceMissing);
@@ -46,7 +46,7 @@ TEST_CASE(fehlendes_oder_abgezogenes_geraet) {
   EXPECT(t.status() == Status::kDeviceMissing);
 }
 
-TEST_CASE(fehler_bleibt_fehler_bis_zum_naechsten_oeffnen) {
+TEST_CASE(error_stays_until_the_next_open) {
   vg::StatusTracker t;
   t.OnOpen(OpenResult::kError, 0);
   EXPECT(t.status() == Status::kError);
@@ -56,7 +56,7 @@ TEST_CASE(fehler_bleibt_fehler_bis_zum_naechsten_oeffnen) {
   EXPECT(t.status() == Status::kError);
 }
 
-TEST_CASE(werte_passen_zur_dart_seite) {
+TEST_CASE(values_match_the_dart_side) {
   EXPECT(static_cast<int>(Status::kConnecting) == 0);
   EXPECT(static_cast<int>(Status::kPlaying) == 1);
   EXPECT(static_cast<int>(Status::kNoSignal) == 2);

@@ -11,22 +11,23 @@ import 'package:flutter/widgets.dart';
 import 'grabber_config.dart';
 import 'grabber_source.dart';
 
-/// View-Art, die native/src/grabber_view.cc anmeldet.
+/// View type registered by native/src/grabber_view.cc.
 const String grabberViewType = 'video_grabber/view';
 
-/// Was die Quelle von der nativen Bibliothek braucht. Eigene Schnittstelle,
-/// damit die Tests ohne Bibliothek auskommen.
+/// What the source needs from the native library. A separate interface so
+/// the tests can run without the library.
 abstract class GrabberNativeApi {
-  /// Meldet die View-Art an. false, wenn die Bibliothek fehlt.
+  /// Registers the view type. false if the library is missing.
   bool register();
 
-  /// Zustand der View als GrabberStatus-Index, -1 wenn es sie (noch) nicht gibt.
+  /// State of the view as a GrabberStatus index, -1 if it does not exist
+  /// (yet).
   int status(int viewId);
 }
 
-/// Wo die Bibliothek gesucht wird, in dieser Reihenfolge: VG_LIBRARY, dann
-/// über LD_LIBRARY_PATH (so startet carnine-frontend das Bundle aus
-/// /opt/carnine/frontend), dann lib/ neben dem Arbeitsordner (Testaufbau).
+/// Where the library is looked up, in this order: VG_LIBRARY, then via
+/// LD_LIBRARY_PATH (that is how carnine-frontend starts the bundle from
+/// /opt/carnine/frontend), then lib/ below the working directory (test rig).
 List<String> libraryCandidates(Map<String, String> environment) => [
   ?environment['VG_LIBRARY'],
   'libvideo_grabber_view.so',
@@ -74,8 +75,8 @@ class FfiGrabberNativeApi implements GrabberNativeApi {
   int status(int viewId) => _status?.call(viewId) ?? -1;
 }
 
-/// Bildquelle über die native Platform-View. Der Zustand kommt aus der
-/// Aufnahme im nativen Teil und wird regelmäßig abgefragt.
+/// Picture source backed by the native platform view. The state comes from
+/// the capture in the native part and is polled.
 class NativeGrabberSource implements GrabberSource {
   NativeGrabberSource({
     this.config = const GrabberConfig(),
@@ -83,8 +84,8 @@ class NativeGrabberSource implements GrabberSource {
     this.pollInterval = const Duration(milliseconds: 250),
   }) : api = api ?? FfiGrabberNativeApi();
 
-  /// Gilt für die View, die beim ersten Bau entsteht. Für andere Werte eine
-  /// neue Quelle anlegen (z. B. mit ValueKey(config) am Widget).
+  /// Applies to the view created on the first build. For other values create
+  /// a new source (e.g. with ValueKey(config) on the widget).
   final GrabberConfig config;
   final GrabberNativeApi api;
   final Duration pollInterval;
@@ -105,14 +106,14 @@ class NativeGrabberSource implements GrabberSource {
     if (!_registered) {
       _state.value = const GrabberState(
         GrabberStatus.error,
-        error: 'Bibliothek video_grabber_view nicht geladen',
+        error: 'library video_grabber_view not loaded',
       );
       return;
     }
     _timer ??= Timer.periodic(pollInterval, (_) => poll());
   }
 
-  /// Fragt den nativen Zustand ab. Öffentlich für die Tests.
+  /// Polls the native state. Public for the tests.
   @visibleForTesting
   void poll() {
     final id = _viewId;
@@ -123,7 +124,7 @@ class NativeGrabberSource implements GrabberSource {
     if (next != _state.value) _state.value = next;
   }
 
-  /// Von der View gemeldet, sobald der native Teil sie angelegt hat.
+  /// Called by the view once the native part has created it.
   @visibleForTesting
   void attach(int viewId) {
     _viewId = viewId;
@@ -176,7 +177,7 @@ class NativeGrabberSource implements GrabberSource {
   }
 }
 
-/// Legt die View über den Kanal flutter/platform_views an, wie pv_bench in
+/// Creates the view over the flutter/platform_views channel, like pv_bench in
 /// ivi-homescreen (test/integration/pv_bench/lib/main.dart).
 class _GrabberViewController extends PlatformViewController {
   _GrabberViewController({

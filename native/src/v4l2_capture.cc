@@ -72,8 +72,8 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
                                           : OpenResult::kError;
   }
 
-  // Welche Formate bietet das Gerät? UYVY = Grabber (STK1160), sonst YUYV =
-  // USB-Kamera (uvcvideo). MJPEG wird nicht unterstützt.
+  // Which formats does the device offer? UYVY = grabber (STK1160), otherwise
+  // YUYV = USB camera (uvcvideo). MJPEG is not supported.
   bool has_uyvy = false, has_yuyv = false;
   for (uint32_t i = 0; i < 32; ++i) {
     v4l2_fmtdesc d{};
@@ -84,7 +84,7 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
     has_yuyv = has_yuyv || d.pixelformat == V4L2_PIX_FMT_YUYV;
   }
   if (!has_uyvy && !has_yuyv) {
-    last_error_ = "Gerät liefert weder UYVY noch YUYV";
+    last_error_ = "device offers neither UYVY nor YUYV";
     Close();
     return OpenResult::kError;
   }
@@ -106,7 +106,7 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
     fmt.fmt.pix.field = V4L2_FIELD_INTERLACED;
   } else {
-    // USB-Kamera: 640x480 hat bei der Jieli 1224:2a25 25/s, 1280x720 nur 5/s.
+    // USB camera: 640x480 gives 25/s on the Jieli 1224:2a25, 1280x720 only 5/s.
     fmt.fmt.pix.width = 640;
     fmt.fmt.pix.height = 480;
     fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
@@ -118,7 +118,7 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
   const uint32_t want = packing_ == Packing::kUyvy ? V4L2_PIX_FMT_UYVY
                                                    : V4L2_PIX_FMT_YUYV;
   if (fmt.fmt.pix.pixelformat != want) {
-    last_error_ = "Gerät hat das Format nicht übernommen";
+    last_error_ = "device did not accept the format";
     Close();
     return OpenResult::kError;
   }
@@ -189,7 +189,7 @@ WaitResult V4l2Capture::Wait(int timeout_ms, Frame* frame) {
     return IsGone(err) ? WaitResult::kGone : WaitResult::kError;
   }
   if (buf.index >= mappings_.size()) {
-    last_error_ = "VIDIOC_DQBUF: unbekannter Puffer";
+    last_error_ = "VIDIOC_DQBUF: unknown buffer";
     return WaitResult::kError;
   }
   frame->data = static_cast<const uint8_t*>(mappings_[buf.index].addr);

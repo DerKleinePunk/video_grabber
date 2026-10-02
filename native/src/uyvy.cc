@@ -30,7 +30,7 @@ bool UyvyToNv16(const uint8_t* src,
     uint8_t* y = dst_y + row * y_stride;
     uint8_t* uv = dst_uv + row * uv_stride;
     if (packing == Packing::kUyvy) {
-      // Je 4 Byte U0 Y0 V0 Y1 → Y: Y0 Y1, CbCr: U0 V0.
+      // Each 4 bytes U0 Y0 V0 Y1 → Y: Y0 Y1, CbCr: U0 V0.
       for (uint32_t x = 0; x < width; x += 2) {
         uv[x] = s[0];
         y[x] = s[1];
@@ -39,7 +39,7 @@ bool UyvyToNv16(const uint8_t* src,
         s += 4;
       }
     } else {
-      // Je 4 Byte Y0 U0 Y1 V0.
+      // Each 4 bytes Y0 U0 Y1 V0.
       for (uint32_t x = 0; x < width; x += 2) {
         y[x] = s[0];
         uv[x] = s[1];

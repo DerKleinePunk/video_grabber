@@ -12,11 +12,11 @@
 
 namespace {
 
-// Ein nachgebildeter STK1160: merkt sich, was eingestellt wird, und liefert
-// Bilder nur, wenn der Test welche bereitlegt.
+// A fake STK1160: remembers what gets configured and only delivers frames
+// when the test provides some.
 struct FakeState {
-  int open_errno = 0;            // != 0: Open schlägt fehl
-  unsigned long fail_ioctl = 0;  // dieser ioctl schlägt mit fail_errno fehl
+  int open_errno = 0;            // != 0: Open fails
+  unsigned long fail_ioctl = 0;  // this ioctl fails with fail_errno
   int fail_errno = EINVAL;
   int input = -1;
   v4l2_std_id std = 0;
@@ -24,8 +24,8 @@ struct FakeState {
   bool streaming = false;
   bool closed = false;
   int munmaps = 0;
-  std::vector<uint32_t> queued;   // Puffer beim Treiber
-  std::vector<uint32_t> ready;    // fertige Bilder (Indizes)
+  std::vector<uint32_t> queued;   // buffers held by the driver
+  std::vector<uint32_t> ready;    // finished frames (indices)
   short poll_revents = POLLIN;
   int poll_errno = 0;
   int last_errno = 0;
@@ -130,7 +130,7 @@ class FakeSys : public vg::Sys {
     }
     if (s_->ready.empty() && (s_->poll_revents & POLLIN) != 0) {
       *revents = 0;
-      return 0;  // Frist abgelaufen
+      return 0;  // timed out
     }
     *revents = s_->poll_revents;
     return 1;
@@ -147,7 +147,7 @@ vg::V4l2Capture Make(FakeState* s) {
 
 }  // namespace
 
-TEST_CASE(oeffnen_stellt_pal_eingang_und_uyvy_ein) {
+TEST_CASE(open_sets_pal_input_and_uyvy) {
   FakeState s;
   auto cap = Make(&s);
   vg::CaptureConfig cfg;
@@ -161,7 +161,7 @@ TEST_CASE(oeffnen_stellt_pal_eingang_und_uyvy_ein) {
   EXPECT(s.queued.size() == 4);
 }
 
-TEST_CASE(breite_wird_an_den_treiber_gegeben) {
+TEST_CASE(width_is_passed_to_the_driver) {
   FakeState s;
   auto cap = Make(&s);
   vg::CaptureConfig cfg;
@@ -171,7 +171,7 @@ TEST_CASE(breite_wird_an_den_treiber_gegeben) {
   EXPECT(cap.width() == 360);
 }
 
-TEST_CASE(ntsc_hat_480_zeilen) {
+TEST_CASE(ntsc_has_480_lines) {
   FakeState s;
   auto cap = Make(&s);
   vg::CaptureConfig cfg;
@@ -181,7 +181,7 @@ TEST_CASE(ntsc_hat_480_zeilen) {
   EXPECT(cap.height() == 480);
 }
 
-TEST_CASE(fehlendes_geraet_heisst_missing) {
+TEST_CASE(missing_device_means_missing) {
   FakeState s;
   s.open_errno = ENOENT;
   auto cap = Make(&s);
@@ -189,7 +189,7 @@ TEST_CASE(fehlendes_geraet_heisst_missing) {
   EXPECT(!cap.is_open());
 }
 
-TEST_CASE(fehler_beim_einstellen_raeumt_auf) {
+TEST_CASE(failure_during_setup_cleans_up) {
   FakeState s;
   s.fail_ioctl = VIDIOC_STREAMON;
   auto cap = Make(&s);
@@ -200,7 +200,7 @@ TEST_CASE(fehler_beim_einstellen_raeumt_auf) {
   EXPECT(cap.last_error().find("VIDIOC_STREAMON") == 0);
 }
 
-TEST_CASE(ohne_quelle_kommt_nur_timeout) {
+TEST_CASE(without_source_only_timeout) {
   FakeState s;
   auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kOk);
@@ -209,7 +209,7 @@ TEST_CASE(ohne_quelle_kommt_nur_timeout) {
   EXPECT(f.data == nullptr);
 }
 
-TEST_CASE(bild_wird_geliefert_und_zurueckgegeben) {
+TEST_CASE(frame_is_delivered_and_returned) {
   FakeState s;
   auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kOk);
@@ -226,7 +226,7 @@ TEST_CASE(bild_wird_geliefert_und_zurueckgegeben) {
   EXPECT(s.queued.size() == 1 && s.queued[0] == 2);
 }
 
-TEST_CASE(abgezogen_wird_erkannt) {
+TEST_CASE(unplugging_is_detected) {
   FakeState s;
   auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kOk);
@@ -240,7 +240,7 @@ TEST_CASE(abgezogen_wird_erkannt) {
   EXPECT(cap.Wait(500, &f) == vg::WaitResult::kGone);
 }
 
-TEST_CASE(dqbuf_mit_enodev_ist_gone) {
+TEST_CASE(dqbuf_with_enodev_is_gone) {
   FakeState s;
   auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kOk);
@@ -251,7 +251,7 @@ TEST_CASE(dqbuf_mit_enodev_ist_gone) {
   EXPECT(cap.Wait(500, &f) == vg::WaitResult::kGone);
 }
 
-TEST_CASE(schliessen_stoppt_strom_und_gibt_speicher_frei) {
+TEST_CASE(close_stops_streaming_and_frees_memory) {
   FakeState s;
   auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kOk);
@@ -263,14 +263,14 @@ TEST_CASE(schliessen_stoppt_strom_und_gibt_speicher_frei) {
   EXPECT(cap.Wait(10, &f) == vg::WaitResult::kGone);
 }
 
-TEST_CASE(usb_kamera_mit_yuyv_ohne_norm_und_eingang) {
+TEST_CASE(usb_camera_with_yuyv_without_norm_and_input) {
   FakeState s;
   s.formats = {V4L2_PIX_FMT_MJPEG, V4L2_PIX_FMT_YUYV};
   auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kOk);
   EXPECT(cap.is_usb_camera());
-  EXPECT(s.input == -1);  // kein VIDIOC_S_INPUT
-  EXPECT(s.std == 0);     // kein VIDIOC_S_STD
+  EXPECT(s.input == -1);  // no VIDIOC_S_INPUT
+  EXPECT(s.std == 0);     // no VIDIOC_S_STD
   EXPECT(cap.width() == 640 && cap.height() == 480);
   s.queued.clear();
   s.ready = {1};
@@ -281,7 +281,7 @@ TEST_CASE(usb_kamera_mit_yuyv_ohne_norm_und_eingang) {
   EXPECT(f.complete());
 }
 
-TEST_CASE(grabber_bleibt_bei_uyvy_auch_wenn_yuyv_da_ist) {
+TEST_CASE(grabber_stays_on_uyvy_even_if_yuyv_exists) {
   FakeState s;
   s.formats = {V4L2_PIX_FMT_YUYV, V4L2_PIX_FMT_UYVY};
   auto cap = Make(&s);
@@ -296,7 +296,7 @@ TEST_CASE(grabber_bleibt_bei_uyvy_auch_wenn_yuyv_da_ist) {
   EXPECT(f.interlaced);
 }
 
-TEST_CASE(nur_mjpeg_wird_abgelehnt) {
+TEST_CASE(mjpeg_only_is_rejected) {
   FakeState s;
   s.formats = {V4L2_PIX_FMT_MJPEG};
   auto cap = Make(&s);
@@ -305,13 +305,13 @@ TEST_CASE(nur_mjpeg_wird_abgelehnt) {
   EXPECT(cap.last_error().find("UYVY") != std::string::npos);
 }
 
-TEST_CASE(unvollstaendiges_bild_wird_erkannt) {
+TEST_CASE(incomplete_frame_is_detected) {
   vg::Frame f;
   f.stride = 1440;
   f.height = 480;
   f.bytes = 1440u * 480u;
   EXPECT(f.complete());
-  f.bytes = 689156;  // gemessen auf jeep-pi mit Paketverlust
+  f.bytes = 689156;  // measured on a Pi 4 with packet loss
   EXPECT(!f.complete());
 }
 

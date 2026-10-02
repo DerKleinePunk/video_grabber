@@ -1,4 +1,4 @@
-// Kleinstes Test-Gerüst: jede Prüfung zählt, ein Fehler macht den Lauf rot.
+// Minimal test harness: every check counts, one failure turns the run red.
 #pragma once
 
 #include <cstdio>
@@ -35,7 +35,7 @@ inline int RunAll() {
     c.fn();
     std::printf("%s %s\n", Failures() == before ? "ok  " : "FAIL", c.name);
   }
-  std::printf("%zu Tests, %d Fehler\n", Cases().size(), Failures());
+  std::printf("%zu tests, %d failures\n", Cases().size(), Failures());
   return Failures() == 0 ? 0 : 1;
 }
 

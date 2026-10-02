@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:video_grabber/video_grabber.dart';
 
 void main() {
-  test('Vorgabe ist NTSC auf Composite0 von /dev/video0', () {
+  test('defaults to NTSC on Composite0 of /dev/video0', () {
     const c = GrabberConfig();
     expect(c.norm, VideoNorm.ntsc);
     expect(c.input, 0);
@@ -12,7 +12,7 @@ void main() {
     expect(c.width, 360);
   });
 
-  test('kodiert wie native/src/params.h erwartet', () {
+  test('encodes as native/src/params.h expects', () {
     const c = GrabberConfig(
       device: '/dev/video2',
       input: 4,
@@ -29,7 +29,7 @@ void main() {
     );
   });
 
-  test('Gleichheit für ValueKey', () {
+  test('equality for ValueKey', () {
     expect(const GrabberConfig(input: 1), const GrabberConfig(input: 1));
     expect(
       const GrabberConfig(norm: VideoNorm.pal),
@@ -38,7 +38,7 @@ void main() {
     expect(const GrabberConfig(width: 720), isNot(const GrabberConfig()));
   });
 
-  test('NativeGrabberSource nimmt die Einstellungen an', () {
+  test('NativeGrabberSource takes the settings', () {
     final s = NativeGrabberSource(
       config: const GrabberConfig(norm: VideoNorm.pal),
     );

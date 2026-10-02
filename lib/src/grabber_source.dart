@@ -3,21 +3,22 @@ import 'package:flutter/foundation.dart';
 
 export 'package:flutter/foundation.dart' show ValueListenable;
 
-/// Zustand einer Bildquelle, so wie die Anzeige ihn darstellt.
+/// State of a picture source, as the view presents it.
 enum GrabberStatus {
-  /// Gerät wird geöffnet, noch kein Bild.
+  /// The device is being opened, no picture yet.
   connecting,
 
-  /// Es kommen Bilder.
+  /// Frames are arriving.
   playing,
 
-  /// Das Gerät ist offen, liefert aber kein Bild (z. B. nichts am gelben Stecker).
+  /// The device is open but delivers no picture (e.g. nothing on the yellow
+  /// plug).
   noSignal,
 
-  /// Das Gerät fehlt (abgezogen oder Treiber nicht geladen).
+  /// The device is missing (unplugged or driver not loaded).
   deviceMissing,
 
-  /// Öffnen oder Abspielen ist fehlgeschlagen, Grund in [GrabberState.error].
+  /// Opening or streaming failed, reason in [GrabberState.error].
   error,
 }
 
@@ -27,7 +28,7 @@ class GrabberState {
 
   final GrabberStatus status;
 
-  /// Seitenverhältnis des Bildes. PAL vom STK1160 ist 4:3.
+  /// Aspect ratio of the picture. PAL from the STK1160 is 4:3.
   final double aspectRatio;
 
   final String? error;
@@ -46,18 +47,18 @@ class GrabberState {
   String toString() => 'GrabberState($status, $aspectRatio, $error)';
 }
 
-/// Eine Bildquelle. Die echte Umsetzung hängt am Gerät, die Tests nehmen
-/// eine nachgebildete.
+/// A picture source. The real implementation talks to the device, the tests
+/// use a fake.
 abstract class GrabberSource {
   ValueListenable<GrabberState> get state;
 
-  /// Öffnet das Gerät und beginnt zu zeigen. Darf erneut aufgerufen werden,
-  /// um nach [GrabberStatus.deviceMissing] wieder zu verbinden.
+  /// Opens the device and starts showing. May be called again to reconnect
+  /// after [GrabberStatus.deviceMissing].
   Future<void> start();
 
   Future<void> stop();
 
-  /// Das Bild selbst. Wird nur bei [GrabberStatus.playing] eingebaut.
+  /// The picture itself. Only shown while [GrabberStatus.playing].
   Widget buildPicture(BuildContext context);
 
   Future<void> dispose();

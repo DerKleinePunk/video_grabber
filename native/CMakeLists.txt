@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall -Wextra -Werror)
 
-# Gerätefreier Kern, auf dem Entwicklungsrechner und auf dem Pi testbar.
+# Device-free core, testable on the development machine and on the Pi.
 add_library(vg_core STATIC src/uyvy.cc src/v4l2_capture.cc src/status.cc src/params.cc)
 target_include_directories(vg_core PUBLIC src)
 set_property(TARGET vg_core PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -29,19 +29,19 @@ if (BUILD_TESTING)
   add_test(NAME params_test COMMAND params_test)
 endif ()
 
-# Platform-View-Plugin für ivi-homescreen, gebaut gegen ein Shell-Build-
-# Verzeichnis wie test/integration/pv_bench dort:
+# Platform view plugin for ivi-homescreen, built against a shell build
+# directory like test/integration/pv_bench there:
 #   cmake -B build -DIHS_BUILD_DIR=<shell-build> -DIHS_SOURCE_DIR=<ivi-homescreen>
 #         -DCMAKE_TOOLCHAIN_FILE=<emb-toolchain>
 if (IHS_BUILD_DIR)
   if (NOT IHS_SOURCE_DIR)
-    message(FATAL_ERROR "IHS_SOURCE_DIR (ivi-homescreen) fehlt")
+    message(FATAL_ERROR "IHS_SOURCE_DIR (ivi-homescreen) is missing")
   endif ()
   set(_ihs_shared_so "${IHS_BUILD_DIR}/shell/lib/libihs_shared.so")
   if (NOT EXISTS "${_ihs_shared_so}")
-    message(FATAL_ERROR "kein libihs_shared.so in ${IHS_BUILD_DIR}")
+    message(FATAL_ERROR "no libihs_shared.so in ${IHS_BUILD_DIR}")
   endif ()
-  # pkg-config weiß nichts vom Querbau (Hinweis aus pv_bench).
+  # pkg-config knows nothing about the cross build (hint from pv_bench).
   if (CMAKE_CROSSCOMPILING AND CMAKE_SYSROOT)
     file(GLOB _pc_dirs
          "${CMAKE_SYSROOT}/usr/lib/*/pkgconfig"

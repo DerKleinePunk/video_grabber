@@ -11,7 +11,7 @@ bool Apply(const std::string& s, vg::CaptureConfig* c) {
 }
 }  // namespace
 
-TEST_CASE(vorgabe_ist_ntsc_composite0_video0) {
+TEST_CASE(default_is_ntsc_composite0_video0) {
   const auto c = vg::DefaultConfig();
   EXPECT(!c.pal);
   EXPECT(c.width == 360);
@@ -19,7 +19,7 @@ TEST_CASE(vorgabe_ist_ntsc_composite0_video0) {
   EXPECT(c.device == "/dev/video0");
 }
 
-TEST_CASE(alle_schluessel_werden_uebernommen) {
+TEST_CASE(all_keys_are_applied) {
   auto c = vg::DefaultConfig();
   EXPECT(Apply("device=/dev/video2\ninput=4\nnorm=pal\n", &c));
   EXPECT(c.device == "/dev/video2");
@@ -29,7 +29,7 @@ TEST_CASE(alle_schluessel_werden_uebernommen) {
   EXPECT(!c.pal);
 }
 
-TEST_CASE(breite_720_oder_360) {
+TEST_CASE(width_720_or_360) {
   auto c = vg::DefaultConfig();
   EXPECT(Apply("width=720", &c));
   EXPECT(c.width == 720);
@@ -39,26 +39,26 @@ TEST_CASE(breite_720_oder_360) {
   EXPECT(c.width == 360);
 }
 
-TEST_CASE(leere_parameter_lassen_die_vorgabe) {
+TEST_CASE(empty_params_keep_the_default) {
   auto c = vg::DefaultConfig();
   EXPECT(vg::ApplyParams(nullptr, 0, &c));
   EXPECT(Apply("", &c));
   EXPECT(!c.pal && c.input == 0);
 }
 
-TEST_CASE(unbekannte_schluessel_und_zeilen_ohne_gleich_werden_ignoriert) {
+TEST_CASE(unknown_keys_and_lines_without_equals_are_ignored) {
   auto c = vg::DefaultConfig();
-  EXPECT(Apply("zoom=2\nunsinn\nnorm=pal", &c));
+  EXPECT(Apply("zoom=2\nnonsense\nnorm=pal", &c));
   EXPECT(c.pal);
 }
 
-TEST_CASE(ungueltige_werte_melden_fehler_und_aendern_nichts) {
+TEST_CASE(invalid_values_report_failure_and_change_nothing) {
   auto c = vg::DefaultConfig();
   EXPECT(!Apply("norm=secam\ninput=x\ninput=1234\ndevice=video0", &c));
   EXPECT(!c.pal);
   EXPECT(c.input == 0);
   EXPECT(c.device == "/dev/video0");
-  // gültige Werte daneben gelten trotzdem
+  // valid values next to them still apply
   EXPECT(!Apply("norm=foo\ninput=2", &c));
   EXPECT(c.input == 2);
 }

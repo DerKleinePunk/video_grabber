@@ -19,7 +19,7 @@ class FakeApi implements GrabberNativeApi {
 }
 
 void main() {
-  test('fehlende Bibliothek wird als Fehler gemeldet', () async {
+  test('missing library is reported as an error', () async {
     final source = NativeGrabberSource(api: FakeApi(loads: false));
     await source.start();
     expect(source.state.value.status, GrabberStatus.error);
@@ -27,7 +27,7 @@ void main() {
     await source.dispose();
   });
 
-  test('übernimmt den nativen Zustand der angelegten View', () async {
+  test('takes the native state of the created view', () async {
     final api = FakeApi();
     final source = NativeGrabberSource(api: api);
     await source.start();
@@ -48,11 +48,11 @@ void main() {
     await source.dispose();
   });
 
-  test('unbekannte Werte und fehlende View ändern nichts', () async {
+  test('unknown values and a missing view change nothing', () async {
     final api = FakeApi();
     final source = NativeGrabberSource(api: api);
     await source.start();
-    source.poll(); // noch keine View
+    source.poll(); // no view yet
     expect(source.state.value.status, GrabberStatus.connecting);
     api.statuses[1] = 99;
     source.attach(1);
@@ -63,7 +63,7 @@ void main() {
     await source.dispose();
   });
 
-  test('fragt regelmäßig ab und hört nach stop auf', () async {
+  test('polls regularly and stops after stop()', () async {
     final api = FakeApi();
     final source = NativeGrabberSource(
       api: api,
@@ -83,7 +83,7 @@ void main() {
     await source.dispose();
   });
 
-  test('Bibliothek: erst VG_LIBRARY, dann LD_LIBRARY_PATH, dann lib/', () {
+  test('library: VG_LIBRARY first, then LD_LIBRARY_PATH, then lib/', () {
     expect(libraryCandidates({'VG_LIBRARY': '/x/y.so'}), [
       '/x/y.so',
       'libvideo_grabber_view.so',
@@ -95,7 +95,7 @@ void main() {
     ]);
   });
 
-  test('Reihenfolge der Zustände passt zu native/src/status.h', () {
+  test('order of the states matches native/src/status.h', () {
     expect(GrabberStatus.values.map((s) => s.name).toList(), [
       'connecting',
       'playing',

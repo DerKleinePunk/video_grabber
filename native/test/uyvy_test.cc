@@ -6,8 +6,8 @@
 
 namespace {
 
-// Ein UYVY-Bild, in dem jeder Wert seine Herkunft verrät:
-// Y = 10 * Zeile + Spalte, U = 100 + Zeile, V = 200 + Zeile.
+// A UYVY frame in which every value tells where it came from:
+// Y = 10 * row + column, U = 100 + row, V = 200 + row.
 std::vector<uint8_t> MakeUyvy(uint32_t w, uint32_t h, size_t stride) {
   std::vector<uint8_t> img(stride * h, 0xEE);
   for (uint32_t r = 0; r < h; ++r) {
@@ -31,7 +31,7 @@ struct Nv16 {
 
 }  // namespace
 
-TEST_CASE(vollbild_sortiert_jeden_wert_richtig) {
+TEST_CASE(full_frame_places_every_value_correctly) {
   const uint32_t w = 4, h = 3;
   auto src = MakeUyvy(w, h, w * 2);
   Nv16 out(h, w);
@@ -48,7 +48,7 @@ TEST_CASE(vollbild_sortiert_jeden_wert_richtig) {
   }
 }
 
-TEST_CASE(oberes_halbbild_nimmt_die_geraden_zeilen) {
+TEST_CASE(top_field_takes_the_even_lines) {
   const uint32_t w = 2, h = 6;
   auto src = MakeUyvy(w, h, w * 2);
   Nv16 out(3, w);
@@ -61,7 +61,7 @@ TEST_CASE(oberes_halbbild_nimmt_die_geraden_zeilen) {
   }
 }
 
-TEST_CASE(unteres_halbbild_nimmt_die_ungeraden_zeilen) {
+TEST_CASE(bottom_field_takes_the_odd_lines) {
   const uint32_t w = 2, h = 6;
   auto src = MakeUyvy(w, h, w * 2);
   Nv16 out(3, w);
@@ -73,7 +73,7 @@ TEST_CASE(unteres_halbbild_nimmt_die_ungeraden_zeilen) {
   }
 }
 
-TEST_CASE(strides_mit_rand_werden_beachtet_und_nicht_ueberschrieben) {
+TEST_CASE(padded_strides_are_respected_and_not_overwritten) {
   const uint32_t w = 4, h = 2;
   const size_t src_stride = w * 2 + 8, dst_stride = w + 4;
   auto src = MakeUyvy(w, h, src_stride);
@@ -90,8 +90,8 @@ TEST_CASE(strides_mit_rand_werden_beachtet_und_nicht_ueberschrieben) {
   }
 }
 
-TEST_CASE(yuyv_wird_richtig_umsortiert) {
-  // Y0 U Y1 V je Paar: Y = 10*Zeile+Spalte, U = 100+Zeile, V = 200+Zeile.
+TEST_CASE(yuyv_is_repacked_correctly) {
+  // Y0 U Y1 V per pair: Y = 10*row+column, U = 100+row, V = 200+row.
   const uint32_t w = 4, h = 2;
   std::vector<uint8_t> src(w * 2 * h);
   for (uint32_t r = 0; r < h; ++r) {
@@ -113,20 +113,20 @@ TEST_CASE(yuyv_wird_richtig_umsortiert) {
   }
 }
 
-TEST_CASE(pal_halbbild_hat_288_zeilen) {
+TEST_CASE(pal_field_has_288_lines) {
   EXPECT(vg::OutputHeight(576, vg::Field::kTop) == 288);
   EXPECT(vg::OutputHeight(576, vg::Field::kBoth) == 576);
 }
 
-TEST_CASE(falsche_argumente_werden_abgelehnt_ohne_zu_schreiben) {
+TEST_CASE(bad_arguments_are_rejected_without_writing) {
   std::vector<uint8_t> src(16, 1), y(8, 9), uv(8, 9);
-  // ungerade Breite
+  // odd width
   EXPECT(!vg::UyvyToNv16(src.data(), 8, 3, 1, vg::Field::kBoth, y.data(), 4,
                          uv.data(), 4));
-  // Quell-Stride zu klein
+  // source stride too small
   EXPECT(!vg::UyvyToNv16(src.data(), 6, 4, 1, vg::Field::kBoth, y.data(), 4,
                          uv.data(), 4));
-  // Ziel-Stride zu klein
+  // destination stride too small
   EXPECT(!vg::UyvyToNv16(src.data(), 8, 4, 1, vg::Field::kBoth, y.data(), 3,
                          uv.data(), 4));
   EXPECT(!vg::UyvyToNv16(nullptr, 8, 4, 1, vg::Field::kBoth, y.data(), 4,

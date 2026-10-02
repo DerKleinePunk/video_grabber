@@ -4,11 +4,11 @@ import 'package:flutter/foundation.dart';
 
 enum VideoNorm { pal, ntsc }
 
-/// Einstellungen der Kamera. Norm, Eingang und Breite gelten für den Grabber
-/// (STK1160, UYVY); eine USB-Kamera (uvcvideo, YUYV) erkennt das Plugin selbst
-/// und nimmt 640x480 als Vollbild, dort zählt nur [device].
-/// Gespeichert werden sie nicht hier, sondern vom
-/// Backend (carnine2); die App reicht sie nur an die native View weiter.
+/// Camera settings. Norm, input and width apply to the grabber (STK1160,
+/// UYVY); the plugin detects a USB camera (uvcvideo, YUYV) by itself and uses
+/// 640x480 progressive, where only [device] matters.
+/// The settings are not stored here but by the backend (carnine2); the app
+/// only passes them on to the native view.
 @immutable
 class GrabberConfig {
   const GrabberConfig({
@@ -18,22 +18,23 @@ class GrabberConfig {
     this.width = 360,
   }) : assert(width == 360 || width == 720);
 
-  /// V4L2-Gerät des Grabbers.
+  /// V4L2 device of the grabber.
   final String device;
 
-  /// Eingang: 0 = Composite0 (gelber Stecker), 4 = S-Video beim STK1160.
+  /// Input: 0 = Composite0 (yellow plug), 4 = S-Video on the STK1160.
   final int input;
 
-  /// Die Rückfahrkamera am Testaufbau sendet NTSC; die Erkennung des
-  /// Grabbers ist dafür nicht verlässlich.
+  /// The reversing camera on the test rig sends NTSC; the grabber's own
+  /// detection is not reliable for it.
   final VideoNorm norm;
 
-  /// Bildbreite vom Grabber: 360 oder 720. Bei 720 ist der USB am Anschlag
-  /// (auf jeep-pi ~2/3 der Bilder unvollständig, sichtbar ~10/s), bei 360
-  /// kommen alle 30/s. Für ein analoges Kamerabild kostet 360 kaum Schärfe.
+  /// Picture width from the grabber: 360 or 720. At 720 USB is at its limit
+  /// (on a Pi 4 ~2/3 of the frames arrive incomplete, ~10/s visible); at 360
+  /// all 30/s arrive. For an analogue camera picture 360 costs little
+  /// sharpness.
   final int width;
 
-  /// creationParams für die native View, Format wie native/src/params.h.
+  /// creationParams for the native view, format as in native/src/params.h.
   Uint8List encode() => Uint8List.fromList(
     utf8.encode(
       'device=$device\ninput=$input\nnorm=${norm.name}\nwidth=$width\n',

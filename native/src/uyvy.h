@@ -1,6 +1,6 @@
-// Umsortieren der Grabber-Bilder (UYVY 4:2:2, gepackt) in NV16 (4:2:2,
-// Y-Ebene plus verschachtelte CbCr-Ebene). NV16 kann die Display-Hardware des
-// Pi 4 (vc4) direkt auf einer Ebene zeigen, UYVY nicht.
+// Repacks grabber frames (UYVY 4:2:2, packed) into NV16 (4:2:2, Y plane plus
+// interleaved CbCr plane). The Pi 4 display hardware (vc4) can scan out NV16
+// directly on a plane, UYVY it cannot.
 
 #pragma once
 
@@ -9,25 +9,25 @@
 
 namespace vg {
 
-// Welche Zeilen eines Vollbilds übernommen werden. Der STK1160 liefert ein
-// Vollbild aus zwei verschachtelten Halbbildern. Für die Rückfahrkamera ist
-// ein Halbbild genug und hat keine Kammeffekte.
+// Which lines of a frame are taken. The STK1160 delivers a frame made of two
+// interleaved fields. For a reversing camera one field is enough and has no
+// combing artefacts.
 enum class Field {
-  kBoth,    // alle Zeilen (Vollbild, height Zeilen)
-  kTop,     // gerade Zeilen 0, 2, 4, ... (height / 2 Zeilen)
-  kBottom,  // ungerade Zeilen 1, 3, 5, ... (height / 2 Zeilen)
+  kBoth,    // all lines (full frame, height lines)
+  kTop,     // even lines 0, 2, 4, ... (height / 2 lines)
+  kBottom,  // odd lines 1, 3, 5, ... (height / 2 lines)
 };
 
-// Zeilen im Ergebnis für @p height Quellzeilen.
+// Output lines for @p height source lines.
 uint32_t OutputHeight(uint32_t height, Field field);
 
-// Gepacktes 4:2:2: UYVY (STK1160) oder YUYV (USB-Kameras, uvcvideo).
+// Packed 4:2:2: UYVY (STK1160) or YUYV (USB cameras, uvcvideo).
 enum class Packing { kUyvy, kYuyv };
 
-// Wandelt ein gepacktes Bild in NV16 um (Vorgabe UYVY). @p width muss gerade sein. Strides in Bytes:
-// UYVY braucht width * 2 je Zeile, Y width, CbCr width.
-// Gibt false zurück, wenn ein Argument nicht passt; dann ist nichts
-// geschrieben.
+// Converts a packed frame to NV16 (UYVY by default). @p width must be even.
+// Strides in bytes: the packed source needs width * 2 per line, Y width,
+// CbCr width. Returns false if an argument does not fit; nothing is written
+// then.
 bool UyvyToNv16(const uint8_t* src,
                 size_t src_stride,
                 uint32_t width,

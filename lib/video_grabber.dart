@@ -1,5 +1,5 @@
-/// Rückfahrkamera über einen USB-Grabber (STK1160) als Platform-View für
-/// ivi-homescreen. Braucht zur Laufzeit libvideo_grabber_view.so (native/).
+/// Reversing camera via a USB grabber (STK1160) as a platform view for
+/// ivi-homescreen. Needs libvideo_grabber_view.so (native/) at runtime.
 library;
 
 export 'src/grabber_config.dart';

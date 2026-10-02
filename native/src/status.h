@@ -1,5 +1,6 @@
-// Was die Anzeige über die Quelle wissen muss, abgeleitet aus dem, was die
-// Aufnahme meldet. Eigene Klasse, damit die Übergänge ohne Gerät testbar sind.
+// What the view needs to know about the source, derived from what the
+// capture reports. A separate class so the transitions are testable without
+// a device.
 
 #pragma once
 
@@ -9,7 +10,7 @@
 
 namespace vg {
 
-// Werte wie GrabberStatus in lib/src/grabber_source.dart (gleiche Reihenfolge).
+// Values as GrabberStatus in lib/src/grabber_source.dart (same order).
 enum class Status : int32_t {
   kConnecting = 0,
   kPlaying = 1,
@@ -20,7 +21,7 @@ enum class Status : int32_t {
 
 class StatusTracker {
  public:
-  // Kommt so lange kein Bild, gilt das Signal als weg.
+  // If no frame arrives for this long, the signal counts as lost.
   explicit StatusTracker(uint64_t no_signal_after_ms = 1000)
       : no_signal_after_ms_(no_signal_after_ms) {}
 

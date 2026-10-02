@@ -1,99 +1,56 @@
-# Plan: Flutter-Fenster mit dem Bild des Video-Grabbers (emb_cli)
+# Design: Flutter view with the video grabber picture (emb_cli)
 
-## Stand 01.10.2026: Weg C (Michael 10:24)
+## Current design (path C)
 
-Eigenes Platform-View-Plugin für ivi-homescreen, **ohne GStreamer**:
+A dedicated platform view plugin for ivi-homescreen, **without GStreamer**:
 
-- `native/src/v4l2_capture.*`: V4L2 direkt (Eingang, PAL, UYVY, mmap). Ohne Quelle liefert der STK1160 keine
-  Bilder, „Kein Signal“ ist deshalb eine Frist (`status.*`, 1 s).
-- `native/src/uyvy.*`: oberes Halbbild UYVY → NV16 (720x288). Die vc4-Ebenen des Pi 4 zeigen NV16 direkt.
-- `native/src/grabber_view.cc`: `libvideo_grabber_view.so` über `libihs_shared` (`ihs/platform_view.h`). Ring aus
-  drei DRM-Dumb-Buffern, `ihs_pv_submit`. Die Shell legt das Bild auf eine KMS-Ebene oder zeichnet es als Textur.
-  `SOFTWARE_SHM` ist unter drm-kms-egl nicht verdrahtet (geprüft im Quelltext 522e1d4), daher gleich dma-buf.
-- Dart: `NativeGrabberSource` lädt die Bibliothek (`VG_LIBRARY`, Vorgabe `lib/libvideo_grabber_view.so`), legt die
-  View wie `pv_bench` an und fragt `vg_status` ab. Gerät/Eingang/Norm über `VG_DEVICE`, `VG_INPUT`, `VG_NORM`.
+- `native/src/v4l2_capture.*`: V4L2 directly (input, norm, UYVY or YUYV, mmap). Without a source the STK1160
+  delivers no frames, so "no signal" is a timeout (`status.*`, 1 s).
+- `native/src/uyvy.*`: top field UYVY → NV16 (720x288 PAL, 720x240 NTSC; width 360 optional). USB cameras
+  (YUYV, progressive 640x480) are converted as full frames. The vc4 planes of the Pi 4 scan out NV16 directly.
+- `native/src/grabber_view.cc`: `libvideo_grabber_view.so` on top of `libihs_shared` (`ihs/platform_view.h`).
+  A ring of three DRM dumb buffers, `ihs_pv_submit`. The shell puts the picture on a KMS plane or draws it as a
+  texture. `SOFTWARE_SHM` is not wired up under drm-kms-egl, hence dma-buf right away.
+- Dart: `NativeGrabberSource` loads the library (`VG_LIBRARY`, then `LD_LIBRARY_PATH`, then
+  `lib/libvideo_grabber_view.so`), creates the view like `pv_bench` and polls `vg_status`. Settings come from
+  `GrabberConfig` (device, input, norm, width) as creationParams; `VG_DEVICE`, `VG_INPUT`, `VG_NORM` and
+  `VG_WIDTH` override them for manual tests.
 
-Auf jeep-pi (drm-kms-egl, 1024x600): Verhandlung NV16 über dma-buf-Import, View 800x600 (4:3), ohne Quelle
-„Kein Signal“ (`docs/jeep-pi-kein-signal.png`, mit `tools/drm_shot_planes.py`). **Noch nicht gesehen:** ein echtes
-Bild (keine Quelle am gelben Stecker), Abziehen im Betrieb, Verzögerung.
+Verified on a Pi 4 (drm-kms-egl, 1024x600): NV16 negotiated via dma-buf import, view 800x600 (4:3), "no signal"
+without a source, live picture from an NTSC reversing camera, unplugging and replugging while running, touch
+next to the view, USB camera in colour.
 
-Bauen: siehe README.
+Width 360 is the default: at 720 the STK1160 saturates USB 2.0 and about two thirds of the frames arrive
+incomplete; at 360 all 30 frames per second arrive.
 
----
+Building: see the README.
 
-Ursprünglicher Entwurf:
+## Options considered
 
+**Path A: `video_player` with `v4l2:///dev/video0`.** The emb workspace has `video_player_linux` (GStreamer,
+`playbin`), which can read the URI directly. Open issues were live sources without duration, setting norm and
+input, latency and deinterlacing.
 
-Stand: 01.10.2026, flutter-local-map. Auftrag: 2026-10-01_0901_michael_video-grabber-projekt.md. Ton bleibt außen vor.
+**Path B: own plugin with a fixed GStreamer pipeline** (`v4l2src ! deinterlace ! videoconvert ! appsink`) into a
+Flutter texture, modelled on `video_player_linux`.
 
-## Was ich heute gefunden habe (geprüft)
+**Path C (chosen): no GStreamer at all**, V4L2 straight into KMS planes. Fewer dependencies, lowest latency and
+CPU load, and full control over norm, input and incomplete frames.
 
-- **Grabber:** `lsusb` auf DELEWS004 (WSL) zeigt `05e1:0408 Syntek STK1160 Video Capture Device`, „USB 2.0 Video Capture Controller“.
-  - Das ist ein **analoger** Grabber (Composite/S-Video, PAL 720x576, Halbbilder), keine Webcam (kein UVC).
-  - Er hat eine Audio-Schnittstelle, die wir nicht nutzen.
-- **WSL kann ihn nicht ansprechen:** Der WSL-Kernel 6.18.33.2 hat `CONFIG_VIDEO_STK1160` nicht, es gibt kein `/dev/video*`. V4L2 selbst ist als Modul da.
-- **Der Pi kann es:** Der Kernel auf jeep-pi (6.18.50+rpt-rpi-v8) bringt `stk1160.ko` und `saa7115.ko` mit (den Decoder-Chip im Grabber).
-- **emb_cli / ivi-homescreen:** Im Workspace `~/develop/emb-workspace` liegt das Plugin **`video_player_linux`** (GStreamer, `playbin`). Es ist für das pub-Paket `video_player` gedacht und rendert in eine Flutter-Textur.
-  - GStreamer kennt die URI `v4l2:///dev/video0`. `playbin` kann also im Prinzip direkt vom Grabber lesen.
-  - Das `camera`-Plugin ist laut README noch „WIP“ und hängt an libcamera, das passt nicht zu einem V4L2-Grabber.
+## Hardware notes
 
-## Ziel
-
-Eine kleine Flutter-App für den Pi 4, gebaut mit emb_cli wie die Karten-App (drm-kms-egl). Sie zeigt das Live-Bild des Grabbers in einem Fenster bzw. Widget, mit:
-- Seitenverhältnis 4:3,
-- dem Hinweis „Kein Signal“, wenn nichts anliegt,
-- Wiederverbinden, wenn der Grabber abgezogen und wieder angesteckt wird.
-
-Später kann daraus ein Widget/Paket für carnine2 werden (z. B. Rückfahrkamera), das ist aber nicht Teil dieses Plans.
-
-## Weg
-
-**Schritt 0: Grabber am Pi in Betrieb nehmen (ohne Flutter, ca. 1 h).**
-- Den Grabber an jeep-pi stecken (Michael), Kamera oder Quelle an Composite.
-- Prüfen:
-  - `dmesg`, ob `stk1160` und `saa7115` laden,
-  - `/dev/video0`,
-  - `v4l2-ctl --list-formats-ext`, `--list-inputs`, Norm PAL.
-- Ein Standbild mit `gst-launch-1.0 v4l2src norm=PAL ! videoconvert ! jpegenc ! filesink` aufnehmen und auf den Share legen.
-- Es fehlen ggf. die Pakete `v4l-utils`, `gstreamer1.0-plugins-good` (v4l2src) und `-base`.
-- Ergebnis: Format, Auflösung, Bildrate und wie das Bild aussieht (Halbbilder, Ränder).
-
-**Schritt 1: App-Gerüst `video_grabber` (lokal, emb_cli).**
-- Neues Flutter-Projekt.
-- Baueintrag im emb-Workspace wie `map_local_pi` (`emb cross … --backend drm-kms-egl`), diesmal **mit** dem Plugin `video_player_linux` (nicht `DISABLE_PLUGINS=ON`).
-- Erst nur ein Testbild, um Bau und Start auf jeep-pi zu klären.
-
-**Schritt 2, Weg A (zuerst versuchen): `video_player` mit `v4l2:///dev/video0`.**
-- `VideoPlayerController.networkUrl(Uri.parse('v4l2:///dev/video0'))`, kein eigener nativer Code.
-- Offene Punkte:
-  - Wie geht `playbin` mit einer Live-Quelle um (kein Ende, keine Dauer)?
-  - Wie stellt man die PAL-Norm und den Eingang ein? Ggf. über `v4l2-ctl` vor dem Start.
-  - Wie groß ist die Verzögerung?
-  - Gibt es einen Deinterlacer (sonst Kammeffekt)?
-- Wenn das reicht: fertig mit dem kleinsten Aufwand.
-
-**Schritt 2, Weg B (falls A hakt): eigenes kleines Plugin im ivi-homescreen.**
-- Eine feste GStreamer-Kette `v4l2src norm=PAL device=… ! deinterlace ! videoconvert ! appsink` (RGBA oder NV12), Bild in eine Flutter-Textur.
-- Der Aufbau ist wie bei `video_player_linux`, dessen Textur-Code (inkl. `nv12.h`) übernehme ich.
-- Ein MethodChannel steuert `start/stop`, Gerät, Norm, Eingang und meldet den Status „kein Signal“.
-- Mehr Arbeit (geschätzt 2–3 Tage), dafür bestimmen wir die Kette selbst und haben weniger Verzögerung.
-
-**Schritt 3: Messen auf jeep-pi.**
-- CPU-Last, RSS und Verzögerung (Uhr ins Bild halten und abfotografieren).
-- Abziehen und Anstecken im Betrieb, Dauerlauf 1 h.
-- Temperatur (siehe #70).
+- The STK1160 (`05e1:0408`) is an **analogue** grabber (composite/S-Video, PAL 720x576 or NTSC 720x480,
+  interlaced), not a UVC webcam. Its audio interface is not used.
+- The Raspberry Pi OS kernel ships `stk1160.ko` and `saa7115.ko` (the decoder chip). The WSL kernel lacks
+  `CONFIG_VIDEO_STK1160`, so development happens on the Pi.
+- Input 0 is Composite0 (yellow plug), input 4 is S-Video. The reversing camera on the test rig sends NTSC;
+  the grabber's own norm detection is not reliable for it.
 
 ## Tests
 
-- **Dart:** Widget-Tests für Statusanzeige, Seitenverhältnis und „Kein Signal“, mit einem nachgebildeten Controller.
-- **Nativ (Weg B):** GoogleTest wie bei den anderen ivi-Plugins, Kette mit `videotestsrc` statt `v4l2src`, ohne Gerät.
-- **Gerät:** Schritt 0 und 3 auf jeep-pi, mit Bildern als Nachweis.
-
-## Offene Fragen an Michael
-
-1. **Name und Ort:** Vorschlag `~/develop/video_grabber`, eigenes GitHub-Repo `DerKleinePunk/video_grabber`? Oder als Beispiel-App in flutter_local_map?
-2. **Zum Testen am Pi:** Darf der Grabber (und eine Quelle) an jeep-pi? Lokal in WSL geht es nur mit einem selbst gebauten Kernelmodul für den WSL-Kernel. Das würde ich vermeiden, getestet und freigegeben wird ohnehin nur der Pi 4.
-3. **Wofür später?** Rückfahrkamera, DVB-T oder etwas anderes? Das entscheidet, ob die Verzögerung wichtig ist (bei der Rückfahrkamera ja).
-4. **Quelle:** Was hängt am Grabber, PAL-Composite?
-
-Bis zur Antwort lege ich nichts an und baue nichts.
+- **Dart:** widget tests for the status messages, aspect ratio and "no signal" with a fake source; unit tests
+  for `GrabberConfig` and `NativeGrabberSource` with a fake native API.
+- **Native:** tests for the repacking, the status tracker, the parameter parser and the capture against a fake
+  `Sys` (no device needed); they also run on the Pi.
+- **Device:** `native/tools/vg_probe` (frames, rate, incomplete frames) and `tools/drm_shot_planes.py` (screenshot
+  across all KMS planes) on the Pi.

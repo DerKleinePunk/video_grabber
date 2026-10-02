@@ -1,19 +1,20 @@
 # video_grabber
 
-Flutter-App, die das Live-Bild eines USB-Video-Grabbers (Syntek STK1160, Composite/S-Video, PAL) anzeigt.
-Ziel ist der Raspberry Pi 4, gebaut mit [emb_cli](https://pub.dev/packages/emb_cli) und ivi-homescreen
-(Backend drm-kms-egl), wie die Karten-App aus `flutter_local_map`. Ton wird nicht genutzt.
+Flutter app and library that shows the live picture of a USB video grabber (Syntek STK1160, composite/S-Video,
+PAL/NTSC) or a USB camera (uvcvideo, YUYV). The target is the Raspberry Pi 4, built with
+[emb_cli](https://pub.dev/packages/emb_cli) and ivi-homescreen (backend drm-kms-egl), like the map app from
+`flutter_local_map`. Audio is not used.
 
-Stand und Weg: [docs/plan.md](docs/plan.md).
+Design and history: [docs/plan.md](docs/plan.md).
 
-## Flutter-Version
+## Flutter version
 
-Gebaut wird mit dem Flutter aus dem emb-Workspace (`~/develop/emb-workspace/flutter`, 3.47.5),
-nicht mit dem `flutter` aus dem PATH.
+Build with the Flutter from the emb workspace (`~/develop/emb-workspace/flutter`, 3.47.5), not with the `flutter`
+on the PATH.
 
-## Bauen für den Pi 4
+## Building for the Pi 4
 
-App (emb_cli, aus `~/develop/emb-workspace/app/ivi-homescreen`):
+App (emb_cli, from `~/develop/emb-workspace/app/ivi-homescreen`):
 
 ```sh
 emb cross . --target rpi4-trixie --build --backend drm-kms-egl \
@@ -21,7 +22,7 @@ emb cross . --target rpi4-trixie --build --backend drm-kms-egl \
   -w ~/develop/emb-workspace
 ```
 
-Plugin (gegen dasselbe Shell-Build-Verzeichnis, das emb meldet):
+Plugin (against the same shell build directory that emb reports):
 
 ```sh
 W=~/develop/emb-workspace/.config/flutter_workspace
@@ -32,8 +33,12 @@ cmake -S native -B build-pi -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=
 cmake --build build-pi
 ```
 
-`runnable/` von emb und `build-pi/libvideo_grabber_view.so` (nach `lib/`) auf den Pi kopieren, dort
-`./homescreen -b . -f`. `VG_TEST_PATTERN=1` zeigt Farbbalken statt des Grabbers.
+Copy emb's `runnable/` and `build-pi/libvideo_grabber_view.so` (into `lib/`) to the Pi and run
+`./homescreen -b . -f` there. `VG_TEST_PATTERN=1` shows colour bars instead of the grabber.
 
-Tests: `flutter test` (Dart) und `cmake -S native -B build && cmake --build build && ctest --test-dir build` (nativ,
-auch auf dem Pi).
+Build output (`libapp.so*`, `build/`, `build-pi/`, `native/build/`) is never committed.
+
+## Tests
+
+- Dart: `flutter test`
+- Native (also on the Pi): `cmake -S native -B build && cmake --build build && ctest --test-dir build`

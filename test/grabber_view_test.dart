@@ -41,16 +41,16 @@ String _message(WidgetTester tester) =>
     tester.widget<Text>(find.byKey(const ValueKey('grabber-message'))).data!;
 
 void main() {
-  testWidgets('zeigt je Zustand den passenden Hinweis und kein Bild', (
+  testWidgets('shows the matching message per state and no picture', (
     tester,
   ) async {
     final source = FakeSource();
     await tester.pumpWidget(_wrap(source));
 
     final expected = {
-      GrabberStatus.connecting: 'Verbinde …',
-      GrabberStatus.noSignal: 'Kein Signal',
-      GrabberStatus.deviceMissing: 'Kamera nicht angeschlossen',
+      GrabberStatus.connecting: 'Connecting …',
+      GrabberStatus.noSignal: 'No signal',
+      GrabberStatus.deviceMissing: 'Camera not connected',
     };
     for (final entry in expected.entries) {
       source.notifier.value = GrabberState(entry.key);
@@ -63,11 +63,11 @@ void main() {
       error: 'v4l2src: busy',
     );
     await tester.pump();
-    expect(_message(tester), 'Fehler: v4l2src: busy');
+    expect(_message(tester), 'Error: v4l2src: busy');
   });
 
   testWidgets(
-    'Bild bleibt eingebaut, der Hinweis liegt nur ohne Bild darüber',
+    'picture stays in the tree, the message covers it only without a picture',
     (tester) async {
       final source = FakeSource();
       await tester.pumpWidget(_wrap(source));
@@ -79,7 +79,7 @@ void main() {
       source.notifier.value = const GrabberState(GrabberStatus.playing);
       await tester.pump();
       expect(find.byKey(const ValueKey('grabber-message')), findsNothing);
-      // Dieselbe View, nicht neu angelegt: die Aufnahme hängt daran.
+      // Same view, not recreated: the capture is tied to it.
       expect(tester.element(picture), same(element));
 
       source.notifier.value = const GrabberState(GrabberStatus.noSignal);
@@ -89,7 +89,7 @@ void main() {
     },
   );
 
-  testWidgets('hält 4:3 auf dem 1024x600-Bildschirm ein', (tester) async {
+  testWidgets('keeps 4:3 on the 1024x600 screen', (tester) async {
     tester.view.physicalSize = const Size(1024, 600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -104,9 +104,7 @@ void main() {
     expect(size.width, 800);
   });
 
-  testWidgets('App startet die Quelle und gibt sie wieder frei', (
-    tester,
-  ) async {
+  testWidgets('app starts the source and releases it', (tester) async {
     final source = FakeSource();
     await tester.pumpWidget(VideoGrabberApp(source: source));
     expect(source.starts, 1);
@@ -115,14 +113,14 @@ void main() {
     expect(source.disposed, isTrue);
   });
 
-  testWidgets('Testbild zeigt die Farbbalken', (tester) async {
+  testWidgets('test pattern shows the colour bars', (tester) async {
     final source = TestPatternSource();
     await tester.pumpWidget(VideoGrabberApp(source: source));
     await tester.pump();
     expect(find.byKey(const ValueKey('test-pattern')), findsOneWidget);
   });
 
-  testWidgets('Knopf neben dem Bild zählt Berührungen', (tester) async {
+  testWidgets('button next to the picture counts touches', (tester) async {
     tester.view.physicalSize = const Size(1024, 600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -134,17 +132,17 @@ void main() {
     final button = tester.getRect(find.byKey(const ValueKey('touch-probe')));
     expect(picture.overlaps(button), isFalse);
     expect(button.left, greaterThanOrEqualTo(picture.right));
-    // 4:3 im Rest neben der 200 px breiten Leiste.
+    // 4:3 in the space left beside the 200 px side bar.
     expect(picture.width / picture.height, closeTo(4 / 3, 0.01));
 
-    expect(find.text('Berührt: 0'), findsOneWidget);
+    expect(find.text('Touched: 0'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('touch-probe')));
     await tester.tap(find.byKey(const ValueKey('touch-probe')));
     await tester.pump();
-    expect(find.text('Berührt: 2'), findsOneWidget);
+    expect(find.text('Touched: 2'), findsOneWidget);
   });
 
-  testWidgets('eigene Hinweise ersetzen die eingebauten', (tester) async {
+  testWidgets('custom messages replace the built-in ones', (tester) async {
     final source = FakeSource();
     await tester.pumpWidget(
       MaterialApp(

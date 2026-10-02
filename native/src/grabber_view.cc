@@ -1,11 +1,11 @@
-// Platform-View für ivi-homescreen (ihs_shared, docs/PLUGIN_ABI.md): zeigt das
-// Bild des Grabbers ohne GStreamer. Ein Thread je View liest V4L2, sortiert das
-// obere Halbbild nach NV16 in einen Ring aus DRM-Dumb-Buffern und reicht ihn
-// mit ihs_pv_submit weiter. Die Shell legt NV16 auf eine KMS-Ebene, wenn eine
-// frei ist, sonst zeichnet sie es als Textur.
+// Platform view for ivi-homescreen (ihs_shared, docs/PLUGIN_ABI.md): shows the
+// grabber picture without GStreamer. One thread per view reads V4L2, repacks
+// the top field to NV16 into a ring of DRM dumb buffers and hands it on with
+// ihs_pv_submit. The shell puts NV16 on a KMS plane if one is free, otherwise
+// it draws it as a texture.
 //
-// Dart lädt die Bibliothek, ruft vg_register() und fragt den Zustand mit
-// vg_status(view_id) ab.
+// Dart loads the library, calls vg_register() and polls the state with
+// vg_status(view_id).
 
 #include <atomic>
 #include <chrono>
@@ -44,7 +44,8 @@ uint64_t NowMs() {
           .count());
 }
 
-// Zustand je View-Id für vg_status(); die View selbst lebt im Registry-Handle.
+// State per view id for vg_status(); the view itself lives in the registry
+// handle.
 std::mutex g_status_mutex;
 std::map<int32_t, Status> g_status;
 
@@ -58,9 +59,9 @@ void DropStatus(int32_t id) {
   g_status.erase(id);
 }
 
-// Ein NV16-Puffer: Y-Zeilen, darunter die CbCr-Zeilen, gleicher Pitch.
+// One NV16 buffer: Y lines, below them the CbCr lines, same pitch.
 struct DumbBuffer {
-  int fd = -1;  // PRIME dma-buf, bleibt bei uns; ihs_pv_submit bekommt dups
+  int fd = -1;  // PRIME dma-buf, owned here; ihs_pv_submit gets dups
   uint8_t* map = nullptr;
   size_t size = 0;
   uint32_t pitch = 0;
@@ -70,7 +71,7 @@ struct DumbBuffer {
 bool AllocNv16(int drm_fd, uint32_t width, uint32_t height, DumbBuffer* out) {
   drm_mode_create_dumb creq{};
   creq.width = width;
-  // Y + CbCr je height Zeilen; eine Kachel Reserve, siehe IhsFrame-Hinweis.
+  // Y + CbCr, height lines each; one tile of slack, see the IhsFrame note.
   creq.height = height * 2 + 64;
   creq.bpp = 8;
   if (::ioctl(drm_fd, DRM_IOCTL_MODE_CREATE_DUMB, &creq) != 0) {
@@ -88,7 +89,7 @@ bool AllocNv16(int drm_fd, uint32_t width, uint32_t height, DumbBuffer* out) {
   ph.flags = O_CLOEXEC | O_RDWR;
   const bool exported =
       ::ioctl(drm_fd, DRM_IOCTL_PRIME_HANDLE_TO_FD, &ph) == 0 && ph.fd >= 0;
-  // Der dma-buf und die Abbildung halten den Speicher, der GEM-Handle kann weg.
+  // The dma-buf and the mapping keep the memory alive, the GEM handle can go.
   drm_mode_destroy_dumb dreq{};
   dreq.handle = creq.handle;
   ::ioctl(drm_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq);
@@ -111,7 +112,7 @@ void FreeBuffer(DumbBuffer* b) {
   *b = DumbBuffer{};
 }
 
-// Wartet, bis die Shell den Puffer freigibt (höchstens @timeout_ms).
+// Waits until the shell releases the buffer (at most @timeout_ms).
 void WaitRelease(DumbBuffer* b, int timeout_ms) {
   if (b->release_fence < 0) return;
   pollfd p{b->release_fence, POLLIN, 0};
@@ -133,7 +134,7 @@ class GrabberView {
     thread_ = std::thread([this] { Run(); });
   }
 
-  // Nach Rückkehr läuft kein ihs_pv_submit mehr (Vorgabe aus platform_view.h).
+  // After return no ihs_pv_submit runs any more (required by platform_view.h).
   void Stop() {
     stop_.store(true);
     if (thread_.joinable()) {
@@ -236,7 +237,7 @@ class GrabberView {
     frame.struct_size = sizeof(frame);
     frame.format.fourcc = DRM_FORMAT_NV16;
     frame.format.modifier = DRM_FORMAT_MOD_LINEAR;
-    frame.color_space = IHS_COLOR_SPACE_BT601;  // SD-Video
+    frame.color_space = IHS_COLOR_SPACE_BT601;  // SD video
     frame.color_range = IHS_COLOR_RANGE_LIMITED;
     frame.width = f.width;
     frame.height = h;
@@ -282,7 +283,7 @@ class GrabberView {
 void OnDispose(void* user_data) {
   auto* v = static_cast<GrabberView*>(user_data);
   const int32_t id = v->id();
-  delete v;  // Stop() joint den Thread
+  delete v;  // Stop() joins the thread
   DropStatus(id);
 }
 
@@ -290,8 +291,8 @@ void OnSuspended(void* user_data, uint8_t suspended) {
   static_cast<GrabberView*>(user_data)->SetSuspended(suspended != 0);
 }
 
-// Einstellungen kommen aus Dart (creationParams). Die Umgebung überschreibt
-// sie nur für Tests von Hand.
+// Settings come from Dart (creationParams). The environment overrides them
+// only for manual tests.
 CaptureConfig ConfigFor(const IhsPvCreateInfo* info) {
   CaptureConfig c = DefaultConfig();
   if (!ApplyParams(info->params, info->params_size, &c)) {
@@ -344,7 +345,7 @@ int Factory(const IhsPvCreateInfo* info, void* /*factory_user_data*/,
                info->id, info->width, info->height, rc, grant.granted_kind,
                grant.format.fourcc);
   if (rc != IHS_PV_OK || grant.granted_kind == IHS_PV_KIND_SOFTWARE_SHM) {
-    // Der Software-Weg ist unter drm-kms-egl nicht verdrahtet.
+    // The software path is not wired up under drm-kms-egl.
     return IHS_PV_ERR_UNSUPPORTED;
   }
 
@@ -362,8 +363,8 @@ int Factory(const IhsPvCreateInfo* info, void* /*factory_user_data*/,
 
 extern "C" {
 
-// Meldet die View-Art an. Muss auf dem Platform-Thread laufen; wie pv_bench
-// gehen wir davon aus, dass Dart dort läuft, und posten sonst.
+// Registers the view type. Must run on the platform thread; like pv_bench we
+// assume Dart runs there and post otherwise.
 __attribute__((visibility("default"))) int vg_register() {
   auto do_register = [](void*) {
     const int rc =
@@ -379,7 +380,7 @@ __attribute__((visibility("default"))) int vg_register() {
   return IHS_PV_OK;
 }
 
-// Zustand der View @view_id (vg::Status), -1 wenn es sie nicht gibt.
+// State of view @view_id (vg::Status), -1 if it does not exist.
 __attribute__((visibility("default"))) int32_t vg_status(int32_t view_id) {
   std::lock_guard<std::mutex> lock(vg::g_status_mutex);
   const auto it = vg::g_status.find(view_id);
