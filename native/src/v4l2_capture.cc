@@ -41,10 +41,25 @@ class Posix final : public Sys {
     *revents = r > 0 ? p.revents : 0;
     return r;
   }
-  int Errno() const override { return errno; }
+  [[nodiscard]] int Errno() const override { return errno; }
 };
 
 bool IsGone(int err) { return err == ENODEV || err == ENXIO || err == EIO; }
+
+// strerror() is not thread safe and the capture runs in one thread per view.
+// strerror_r() comes in a GNU flavour (returns the text) and an XSI flavour
+// (fills the buffer); the overloads pick whichever the C library provides.
+[[maybe_unused]] const char* ErrorText(const char* gnu, const char* /*buf*/) {
+  return gnu;
+}
+[[maybe_unused]] const char* ErrorText(int xsi, const char* buf) {
+  return xsi == 0 ? buf : "unknown error";
+}
+
+std::string ErrnoText(int err) {
+  char buf[128] = {};
+  return ErrorText(strerror_r(err, buf, sizeof(buf)), buf);
+}
 
 }  // namespace
 
@@ -55,7 +70,7 @@ V4l2Capture::V4l2Capture(std::unique_ptr<Sys> sys) : sys_(std::move(sys)) {}
 V4l2Capture::~V4l2Capture() { Close(); }
 
 OpenResult V4l2Capture::Fail(const char* what) {
-  last_error_ = std::string(what) + ": " + std::strerror(sys_->Errno());
+  last_error_ = std::string(what) + ": " + ErrnoText(sys_->Errno());
   Close();
   return OpenResult::kError;
 }
@@ -66,7 +81,7 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
   fd_ = sys_->Open(config.device.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC);
   if (fd_ < 0) {
     const int err = sys_->Errno();
-    last_error_ = config.device + ": " + std::strerror(err);
+    last_error_ = config.device + ": " + ErrnoText(err);
     fd_ = -1;
     return (err == ENOENT || IsGone(err)) ? OpenResult::kMissing
                                           : OpenResult::kError;
@@ -74,12 +89,15 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
 
   // Which formats does the device offer? UYVY = grabber (STK1160), otherwise
   // YUYV = USB camera (uvcvideo). MJPEG is not supported.
-  bool has_uyvy = false, has_yuyv = false;
+  bool has_uyvy = false;
+  bool has_yuyv = false;
   for (uint32_t i = 0; i < 32; ++i) {
     v4l2_fmtdesc d{};
     d.index = i;
     d.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    if (sys_->Ioctl(fd_, VIDIOC_ENUM_FMT, &d) < 0) break;
+    if (sys_->Ioctl(fd_, VIDIOC_ENUM_FMT, &d) < 0) {
+      break;
+    }
     has_uyvy = has_uyvy || d.pixelformat == V4L2_PIX_FMT_UYVY;
     has_yuyv = has_yuyv || d.pixelformat == V4L2_PIX_FMT_YUYV;
   }
@@ -185,7 +203,7 @@ WaitResult V4l2Capture::Wait(int timeout_ms, Frame* frame) {
     if (err == EAGAIN) {
       return WaitResult::kTimeout;
     }
-    last_error_ = std::string("VIDIOC_DQBUF: ") + std::strerror(err);
+    last_error_ = std::string("VIDIOC_DQBUF: ") + ErrnoText(err);
     return IsGone(err) ? WaitResult::kGone : WaitResult::kError;
   }
   if (buf.index >= mappings_.size()) {

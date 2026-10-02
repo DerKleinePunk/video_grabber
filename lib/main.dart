@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -27,12 +28,12 @@ class _VideoGrabberAppState extends State<VideoGrabberApp> {
   @override
   void initState() {
     super.initState();
-    widget.source.start();
+    unawaited(widget.source.start());
   }
 
   @override
   void dispose() {
-    widget.source.dispose();
+    unawaited(widget.source.dispose());
     super.dispose();
   }
 

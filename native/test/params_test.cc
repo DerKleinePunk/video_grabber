@@ -63,4 +63,18 @@ TEST_CASE(invalid_values_report_failure_and_change_nothing) {
   EXPECT(c.input == 2);
 }
 
+TEST_CASE(parse_uint_takes_one_to_three_digits_only) {
+  uint32_t v = 7;
+  EXPECT(vg::ParseUint("0", &v) && v == 0);
+  EXPECT(vg::ParseUint("720", &v) && v == 720);
+  EXPECT(vg::ParseUint("007", &v) && v == 7);
+  v = 5;
+  EXPECT(!vg::ParseUint("", &v));
+  EXPECT(!vg::ParseUint("1234", &v));
+  EXPECT(!vg::ParseUint("-1", &v));
+  EXPECT(!vg::ParseUint("3x", &v));
+  EXPECT(!vg::ParseUint(" 3", &v));
+  EXPECT(v == 5);
+}
+
 int main() { return check::RunAll(); }

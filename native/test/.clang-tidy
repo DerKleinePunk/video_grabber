@@ -1,0 +1,4 @@
+# Tests multiply small fixed frame sizes, and EXPECT(a && b) expands to
+# !(a && b); both checks only produce noise here.
+InheritParentConfig: true
+Checks: '-bugprone-implicit-widening-of-multiplication-result,-readability-simplify-boolean-expr'

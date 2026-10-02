@@ -37,18 +37,18 @@ struct FakeState {
 class FakeSys : public vg::Sys {
  public:
   explicit FakeSys(FakeState* s) : s_(s) {}
-  int Open(const char*, int) override {
+  int Open(const char* /*path*/, int /*flags*/) override {
     if (s_->open_errno != 0) {
       s_->last_errno = s_->open_errno;
       return -1;
     }
     return 7;
   }
-  int Close(int) override {
+  int Close(int /*fd*/) override {
     s_->closed = true;
     return 0;
   }
-  int Ioctl(int, unsigned long req, void* arg) override {
+  int Ioctl(int /*fd*/, unsigned long req, void* arg) override {
     if (req == s_->fail_ioctl) {
       s_->last_errno = s_->fail_errno;
       return -1;
@@ -113,17 +113,18 @@ class FakeSys : public vg::Sys {
       case VIDIOC_STREAMOFF:
         s_->streaming = false;
         return 0;
+      default:
+        return 0;
     }
-    return 0;
   }
-  void* Mmap(size_t, int, long offset) override {
+  void* Mmap(size_t /*length*/, int /*fd*/, long offset) override {
     return s_->memory[static_cast<size_t>(offset / 4096)].data();
   }
-  int Munmap(void*, size_t) override {
+  int Munmap(void* /*addr*/, size_t /*length*/) override {
     ++s_->munmaps;
     return 0;
   }
-  int PollIn(int, int, short* revents) override {
+  int PollIn(int /*fd*/, int /*timeout_ms*/, short* revents) override {
     if (s_->poll_errno != 0) {
       s_->last_errno = s_->poll_errno;
       return -1;
@@ -135,7 +136,7 @@ class FakeSys : public vg::Sys {
     *revents = s_->poll_revents;
     return 1;
   }
-  int Errno() const override { return s_->last_errno; }
+  [[nodiscard]] int Errno() const override { return s_->last_errno; }
 
  private:
   FakeState* s_;

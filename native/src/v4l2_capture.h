@@ -26,7 +26,7 @@ class Sys {
   virtual int Munmap(void* addr, size_t length) = 0;
   // poll() for POLLIN on @p fd; returns revents or -1.
   virtual int PollIn(int fd, int timeout_ms, short* revents) = 0;
-  virtual int Errno() const = 0;
+  [[nodiscard]] virtual int Errno() const = 0;
 };
 
 std::unique_ptr<Sys> RealSys();
@@ -55,7 +55,7 @@ struct Frame {
 
   // When USB packets are lost the STK1160 delivers a shorter frame and the
   // rest is shifted. Do not show such frames.
-  bool complete() const { return bytes >= stride * height; }
+  [[nodiscard]] bool complete() const { return bytes >= stride * height; }
 };
 
 enum class WaitResult {
@@ -81,12 +81,14 @@ class V4l2Capture {
   void Release(const Frame& frame);
   void Close();
 
-  bool is_open() const { return fd_ >= 0; }
-  uint32_t width() const { return width_; }
+  [[nodiscard]] bool is_open() const { return fd_ >= 0; }
+  [[nodiscard]] uint32_t width() const { return width_; }
   // Grabber (UYVY, norm, input, fields) or USB camera (YUYV).
-  bool is_usb_camera() const { return packing_ == Packing::kYuyv; }
-  uint32_t height() const { return height_; }
-  const std::string& last_error() const { return last_error_; }
+  [[nodiscard]] bool is_usb_camera() const {
+    return packing_ == Packing::kYuyv;
+  }
+  [[nodiscard]] uint32_t height() const { return height_; }
+  [[nodiscard]] const std::string& last_error() const { return last_error_; }
 
  private:
   OpenResult Fail(const char* what);

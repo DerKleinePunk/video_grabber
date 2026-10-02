@@ -32,7 +32,8 @@ struct Nv16 {
 }  // namespace
 
 TEST_CASE(full_frame_places_every_value_correctly) {
-  const uint32_t w = 4, h = 3;
+  const uint32_t w = 4;
+  const uint32_t h = 3;
   auto src = MakeUyvy(w, h, w * 2);
   Nv16 out(h, w);
   EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kBoth, out.y.data(),
@@ -49,7 +50,8 @@ TEST_CASE(full_frame_places_every_value_correctly) {
 }
 
 TEST_CASE(top_field_takes_the_even_lines) {
-  const uint32_t w = 2, h = 6;
+  const uint32_t w = 2;
+  const uint32_t h = 6;
   auto src = MakeUyvy(w, h, w * 2);
   Nv16 out(3, w);
   EXPECT(vg::OutputHeight(h, vg::Field::kTop) == 3);
@@ -62,7 +64,8 @@ TEST_CASE(top_field_takes_the_even_lines) {
 }
 
 TEST_CASE(bottom_field_takes_the_odd_lines) {
-  const uint32_t w = 2, h = 6;
+  const uint32_t w = 2;
+  const uint32_t h = 6;
   auto src = MakeUyvy(w, h, w * 2);
   Nv16 out(3, w);
   EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kBottom,
@@ -74,10 +77,13 @@ TEST_CASE(bottom_field_takes_the_odd_lines) {
 }
 
 TEST_CASE(padded_strides_are_respected_and_not_overwritten) {
-  const uint32_t w = 4, h = 2;
-  const size_t src_stride = w * 2 + 8, dst_stride = w + 4;
+  const uint32_t w = 4;
+  const uint32_t h = 2;
+  const size_t src_stride = w * 2 + 8;
+  const size_t dst_stride = w + 4;
   auto src = MakeUyvy(w, h, src_stride);
-  std::vector<uint8_t> y(dst_stride * h, 0x55), uv(dst_stride * h, 0x55);
+  std::vector<uint8_t> y(dst_stride * h, 0x55);
+  std::vector<uint8_t> uv(dst_stride * h, 0x55);
   EXPECT(vg::UyvyToNv16(src.data(), src_stride, w, h, vg::Field::kBoth,
                         y.data(), dst_stride, uv.data(), dst_stride));
   EXPECT(y[dst_stride + 3] == 13);
@@ -92,7 +98,8 @@ TEST_CASE(padded_strides_are_respected_and_not_overwritten) {
 
 TEST_CASE(yuyv_is_repacked_correctly) {
   // Y0 U Y1 V per pair: Y = 10*row+column, U = 100+row, V = 200+row.
-  const uint32_t w = 4, h = 2;
+  const uint32_t w = 4;
+  const uint32_t h = 2;
   std::vector<uint8_t> src(w * 2 * h);
   for (uint32_t r = 0; r < h; ++r) {
     for (uint32_t x = 0; x < w; x += 2) {
@@ -103,11 +110,14 @@ TEST_CASE(yuyv_is_repacked_correctly) {
       p[3] = static_cast<uint8_t>(200 + r);
     }
   }
-  std::vector<uint8_t> y(w * h), uv(w * h);
+  std::vector<uint8_t> y(w * h);
+  std::vector<uint8_t> uv(w * h);
   EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kBoth, y.data(), w,
                         uv.data(), w, vg::Packing::kYuyv));
   for (uint32_t r = 0; r < h; ++r) {
-    for (uint32_t x = 0; x < w; ++x) EXPECT(y[r * w + x] == 10 * r + x);
+    for (uint32_t x = 0; x < w; ++x) {
+      EXPECT(y[r * w + x] == 10 * r + x);
+    }
     EXPECT(uv[r * w] == 100 + r);
     EXPECT(uv[r * w + 1] == 200 + r);
   }
@@ -119,7 +129,9 @@ TEST_CASE(pal_field_has_288_lines) {
 }
 
 TEST_CASE(bad_arguments_are_rejected_without_writing) {
-  std::vector<uint8_t> src(16, 1), y(8, 9), uv(8, 9);
+  std::vector<uint8_t> src(16, 1);
+  std::vector<uint8_t> y(8, 9);
+  std::vector<uint8_t> uv(8, 9);
   // odd width
   EXPECT(!vg::UyvyToNv16(src.data(), 8, 3, 1, vg::Field::kBoth, y.data(), 4,
                          uv.data(), 4));
@@ -131,7 +143,9 @@ TEST_CASE(bad_arguments_are_rejected_without_writing) {
                          uv.data(), 4));
   EXPECT(!vg::UyvyToNv16(nullptr, 8, 4, 1, vg::Field::kBoth, y.data(), 4,
                          uv.data(), 4));
-  for (auto b : y) EXPECT(b == 9);
+  for (auto b : y) {
+    EXPECT(b == 9);
+  }
 }
 
 int main() { return check::RunAll(); }

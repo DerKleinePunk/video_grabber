@@ -28,8 +28,8 @@ class StatusTracker {
   void OnOpen(OpenResult result, uint64_t now_ms);
   void OnWait(WaitResult result, uint64_t now_ms);
 
-  Status status() const { return status_; }
-  uint64_t frames() const { return frames_; }
+  [[nodiscard]] Status status() const { return status_; }
+  [[nodiscard]] uint64_t frames() const { return frames_; }
 
  private:
   uint64_t no_signal_after_ms_;

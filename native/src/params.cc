@@ -1,7 +1,5 @@
 #include "params.h"
 
-#include <cstdlib>
-
 namespace vg {
 
 CaptureConfig DefaultConfig() {
@@ -11,31 +9,39 @@ CaptureConfig DefaultConfig() {
   return c;
 }
 
-namespace {
-
 bool ParseUint(const std::string& s, uint32_t* out) {
-  if (s.empty() || s.size() > 3) return false;
-  for (char ch : s) {
-    if (ch < '0' || ch > '9') return false;
+  if (s.empty() || s.size() > 3) {
+    return false;
   }
-  *out = static_cast<uint32_t>(std::atoi(s.c_str()));
+  uint32_t value = 0;
+  for (const char ch : s) {
+    if (ch < '0' || ch > '9') {
+      return false;
+    }
+    value = value * 10 + static_cast<uint32_t>(ch - '0');
+  }
+  *out = value;
   return true;
 }
 
-}  // namespace
-
 bool ApplyParams(const uint8_t* data, size_t size, CaptureConfig* config) {
-  if (data == nullptr || size == 0) return true;
+  if (data == nullptr || size == 0) {
+    return true;
+  }
   const std::string text(reinterpret_cast<const char*>(data), size);
   bool ok = true;
   size_t pos = 0;
   while (pos < text.size()) {
     size_t end = text.find('\n', pos);
-    if (end == std::string::npos) end = text.size();
+    if (end == std::string::npos) {
+      end = text.size();
+    }
     const std::string line = text.substr(pos, end - pos);
     pos = end + 1;
     const size_t eq = line.find('=');
-    if (eq == std::string::npos) continue;
+    if (eq == std::string::npos) {
+      continue;
+    }
     const std::string key = line.substr(0, eq);
     const std::string value = line.substr(eq + 1);
     if (key == "device") {

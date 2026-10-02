@@ -50,12 +50,12 @@ std::mutex g_status_mutex;
 std::map<int32_t, Status> g_status;
 
 void PublishStatus(int32_t id, Status s) {
-  std::lock_guard<std::mutex> lock(g_status_mutex);
+  std::scoped_lock const lock(g_status_mutex);
   g_status[id] = s;
 }
 
 void DropStatus(int32_t id) {
-  std::lock_guard<std::mutex> lock(g_status_mutex);
+  std::scoped_lock const lock(g_status_mutex);
   g_status.erase(id);
 }
 
@@ -94,8 +94,12 @@ bool AllocNv16(int drm_fd, uint32_t width, uint32_t height, DumbBuffer* out) {
   dreq.handle = creq.handle;
   ::ioctl(drm_fd, DRM_IOCTL_MODE_DESTROY_DUMB, &dreq);
   if (m == MAP_FAILED || !exported) {
-    if (m != MAP_FAILED) ::munmap(m, creq.size);
-    if (exported) ::close(ph.fd);
+    if (m != MAP_FAILED) {
+      ::munmap(m, creq.size);
+    }
+    if (exported) {
+      ::close(ph.fd);
+    }
     return false;
   }
   out->fd = ph.fd;
@@ -106,15 +110,23 @@ bool AllocNv16(int drm_fd, uint32_t width, uint32_t height, DumbBuffer* out) {
 }
 
 void FreeBuffer(DumbBuffer* b) {
-  if (b->release_fence >= 0) ::close(b->release_fence);
-  if (b->map != nullptr) ::munmap(b->map, b->size);
-  if (b->fd >= 0) ::close(b->fd);
+  if (b->release_fence >= 0) {
+    ::close(b->release_fence);
+  }
+  if (b->map != nullptr) {
+    ::munmap(b->map, b->size);
+  }
+  if (b->fd >= 0) {
+    ::close(b->fd);
+  }
   *b = DumbBuffer{};
 }
 
 // Waits until the shell releases the buffer (at most @timeout_ms).
 void WaitRelease(DumbBuffer* b, int timeout_ms) {
-  if (b->release_fence < 0) return;
+  if (b->release_fence < 0) {
+    return;
+  }
   pollfd p{b->release_fence, POLLIN, 0};
   ::poll(&p, 1, timeout_ms);
   ::close(b->release_fence);
@@ -143,11 +155,13 @@ class GrabberView {
                    "[video_grabber] view %d: %llu incomplete frames dropped\n",
                    id_, static_cast<unsigned long long>(incomplete_));
     }
-    for (auto& b : ring_) FreeBuffer(&b);
+    for (auto& b : ring_) {
+      FreeBuffer(&b);
+    }
   }
 
   void SetSuspended(bool suspended) { suspended_.store(suspended); }
-  int32_t id() const { return id_; }
+  [[nodiscard]] int32_t id() const { return id_; }
 
  private:
   void Run() {
@@ -214,10 +228,16 @@ class GrabberView {
   }
 
   bool EnsureRing(uint32_t width, uint32_t height) {
-    if (ring_width_ == width && ring_height_ == height) return true;
-    for (auto& b : ring_) FreeBuffer(&b);
+    if (ring_width_ == width && ring_height_ == height) {
+      return true;
+    }
     for (auto& b : ring_) {
-      if (!AllocNv16(drm_fd_, width, height, &b)) return false;
+      FreeBuffer(&b);
+    }
+    for (auto& b : ring_) {
+      if (!AllocNv16(drm_fd_, width, height, &b)) {
+        return false;
+      }
     }
     ring_width_ = width;
     ring_height_ = height;
@@ -233,7 +253,9 @@ class GrabberView {
       return;
     }
     const int fd = ::dup(b.fd);
-    if (fd < 0) return;
+    if (fd < 0) {
+      return;
+    }
     IhsFrame frame{};
     frame.struct_size = sizeof(frame);
     frame.format.fourcc = DRM_FORMAT_NV16;
@@ -293,19 +315,30 @@ void OnSuspended(void* user_data, uint8_t suspended) {
 }
 
 // Settings come from Dart (creationParams). The environment overrides them
-// only for manual tests.
+// only for manual tests. getenv() runs on the platform thread while the view
+// is created; nothing in the process calls setenv(), so it is safe here.
 CaptureConfig ConfigFor(const IhsPvCreateInfo* info) {
   CaptureConfig c = DefaultConfig();
   if (!ApplyParams(info->params, info->params_size, &c)) {
     std::fprintf(stderr, "[video_grabber] view %d: invalid params ignored\n",
                  info->id);
   }
-  if (const char* d = std::getenv("VG_DEVICE")) c.device = d;
-  if (const char* i = std::getenv("VG_INPUT")) {
-    c.input = static_cast<uint32_t>(std::atoi(i));
+  if (const char* d = std::getenv(  // NOLINT(concurrency-mt-unsafe)
+          "VG_DEVICE")) {
+    c.device = d;
   }
-  if (const char* n = std::getenv("VG_NORM")) c.pal = std::string(n) == "pal";
-  if (const char* w = std::getenv("VG_WIDTH")) {
+  if (const char* i = std::getenv(  // NOLINT(concurrency-mt-unsafe)
+          "VG_INPUT")) {
+    if (!ParseUint(i, &c.input)) {
+      std::fprintf(stderr, "[video_grabber] VG_INPUT=%s ignored\n", i);
+    }
+  }
+  if (const char* n = std::getenv(  // NOLINT(concurrency-mt-unsafe)
+          "VG_NORM")) {
+    c.pal = std::string(n) == "pal";
+  }
+  if (const char* w = std::getenv(  // NOLINT(concurrency-mt-unsafe)
+          "VG_WIDTH")) {
     c.width = std::string(w) == "720" ? 720 : 360;
   }
   std::fprintf(stderr, "[video_grabber] view %d: %s input %u %s width %u\n",
@@ -374,7 +407,8 @@ __attribute__((visibility("default"))) int vg_register() {
     std::fprintf(stderr, "[video_grabber] register %s: %d\n", vg::kViewType,
                  rc);
   };
-  if (ihs_pv_is_platform_thread != nullptr && ihs_pv_post_platform_task &&
+  if (ihs_pv_is_platform_thread != nullptr &&
+      (ihs_pv_post_platform_task != nullptr) &&
       ihs_pv_is_platform_thread() == 0) {
     return ihs_pv_post_platform_task(do_register, nullptr);
   }
@@ -384,7 +418,7 @@ __attribute__((visibility("default"))) int vg_register() {
 
 // State of view @view_id (vg::Status), -1 if it does not exist.
 __attribute__((visibility("default"))) int32_t vg_status(int32_t view_id) {
-  std::lock_guard<std::mutex> lock(vg::g_status_mutex);
+  std::scoped_lock const lock(vg::g_status_mutex);
   const auto it = vg::g_status.find(view_id);
   return it == vg::g_status.end() ? -1 : static_cast<int32_t>(it->second);
 }
