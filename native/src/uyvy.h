@@ -28,15 +28,9 @@ enum class Packing { kUyvy, kYuyv };
 // Strides in bytes: the packed source needs width * 2 per line, Y width,
 // CbCr width. Returns false if an argument does not fit; nothing is written
 // then.
-bool UyvyToNv16(const uint8_t* src,
-                size_t src_stride,
-                uint32_t width,
-                uint32_t height,
-                Field field,
-                uint8_t* dst_y,
-                size_t y_stride,
-                uint8_t* dst_uv,
-                size_t uv_stride,
+bool UyvyToNv16(const uint8_t* src, size_t src_stride, uint32_t width,
+                uint32_t height, Field field, uint8_t* dst_y, size_t y_stride,
+                uint8_t* dst_uv, size_t uv_stride,
                 Packing packing = Packing::kUyvy);
 
 }  // namespace vg

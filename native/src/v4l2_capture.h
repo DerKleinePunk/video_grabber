@@ -33,8 +33,8 @@ std::unique_ptr<Sys> RealSys();
 
 struct CaptureConfig {
   std::string device = "/dev/video0";
-  uint32_t input = 0;   // Composite0 = yellow plug (check on the device)
-  bool pal = true;      // otherwise NTSC
+  uint32_t input = 0;  // Composite0 = yellow plug (check on the device)
+  bool pal = true;     // otherwise NTSC
   // 720 or 360. At 720 USB is at its limit: on a Pi 4 ~2/3 of the frames
   // arrived incomplete, at 360 none.
   uint32_t width = 720;
@@ -47,7 +47,7 @@ struct Frame {
   uint32_t width = 0;
   uint32_t height = 0;
   size_t stride = 0;
-  uint32_t index = 0;   // for Release()
+  uint32_t index = 0;  // for Release()
   uint64_t timestamp_us = 0;
 
   Packing packing = Packing::kUyvy;

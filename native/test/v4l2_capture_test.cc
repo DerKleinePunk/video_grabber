@@ -1,12 +1,12 @@
 #include "../src/v4l2_capture.h"
 
-#include <cerrno>
-#include <map>
-#include <vector>
-
 #include <linux/videodev2.h>
 #include <poll.h>
 #include <sys/mman.h>
+
+#include <cerrno>
+#include <map>
+#include <vector>
 
 #include "check.h"
 
@@ -24,8 +24,8 @@ struct FakeState {
   bool streaming = false;
   bool closed = false;
   int munmaps = 0;
-  std::vector<uint32_t> queued;   // buffers held by the driver
-  std::vector<uint32_t> ready;    // finished frames (indices)
+  std::vector<uint32_t> queued;  // buffers held by the driver
+  std::vector<uint32_t> ready;   // finished frames (indices)
   short poll_revents = POLLIN;
   int poll_errno = 0;
   int last_errno = 0;

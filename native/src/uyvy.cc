@@ -6,19 +6,12 @@ uint32_t OutputHeight(uint32_t height, Field field) {
   return field == Field::kBoth ? height : height / 2;
 }
 
-bool UyvyToNv16(const uint8_t* src,
-                size_t src_stride,
-                uint32_t width,
-                uint32_t height,
-                Field field,
-                uint8_t* dst_y,
-                size_t y_stride,
-                uint8_t* dst_uv,
-                size_t uv_stride,
-                Packing packing) {
+bool UyvyToNv16(const uint8_t* src, size_t src_stride, uint32_t width,
+                uint32_t height, Field field, uint8_t* dst_y, size_t y_stride,
+                uint8_t* dst_uv, size_t uv_stride, Packing packing) {
   if (src == nullptr || dst_y == nullptr || dst_uv == nullptr || width == 0 ||
-      (width % 2) != 0 || src_stride < size_t{width} * 2 ||
-      y_stride < width || uv_stride < width) {
+      (width % 2) != 0 || src_stride < size_t{width} * 2 || y_stride < width ||
+      uv_stride < width) {
     return false;
   }
   const uint32_t out_height = OutputHeight(height, field);

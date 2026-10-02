@@ -7,15 +7,6 @@
 // Dart loads the library, calls vg_register() and polls the state with
 // vg_status(view_id).
 
-#include <atomic>
-#include <chrono>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <map>
-#include <mutex>
-#include <thread>
-
 #include <drm/drm.h>
 #include <drm/drm_fourcc.h>
 #include <fcntl.h>
@@ -24,6 +15,15 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <map>
+#include <mutex>
+#include <thread>
 
 #include "ihs/platform_view.h"
 #include "params.h"
@@ -139,7 +139,8 @@ class GrabberView {
     stop_.store(true);
     if (thread_.joinable()) {
       thread_.join();
-      std::fprintf(stderr, "[video_grabber] view %d: %llu incomplete frames dropped\n",
+      std::fprintf(stderr,
+                   "[video_grabber] view %d: %llu incomplete frames dropped\n",
                    id_, static_cast<unsigned long long>(incomplete_));
     }
     for (auto& b : ring_) FreeBuffer(&b);
@@ -178,7 +179,8 @@ class GrabberView {
           return;
         }
         std::fprintf(stderr, "[video_grabber] view %d: %s %ux%u -> %ux%u\n",
-                     id_, cap.is_usb_camera() ? "USB camera YUYV" : "grabber UYVY",
+                     id_,
+                     cap.is_usb_camera() ? "USB camera YUYV" : "grabber UYVY",
                      cap.width(), cap.height(), ring_width_, ring_height_);
       }
       Frame f;
@@ -226,9 +228,8 @@ class GrabberView {
     DumbBuffer& b = ring_[next_];
     WaitRelease(&b, 40);
     const uint32_t h = ring_height_;
-    if (!UyvyToNv16(f.data, f.stride, f.width, f.height, field_, b.map,
-                    b.pitch, b.map + size_t{b.pitch} * h, b.pitch,
-                    f.packing)) {
+    if (!UyvyToNv16(f.data, f.stride, f.width, f.height, field_, b.map, b.pitch,
+                    b.map + size_t{b.pitch} * h, b.pitch, f.packing)) {
       return;
     }
     const int fd = ::dup(b.fd);
@@ -323,7 +324,8 @@ int Factory(const IhsPvCreateInfo* info, void* /*factory_user_data*/,
                  "[video_grabber] need the drm-kms-egl backend (gbm device)\n");
     return IHS_PV_ERR_UNSUPPORTED;
   }
-  const int drm_fd = gbm_device_get_fd(static_cast<gbm_device*>(egl.gbm_device));
+  const int drm_fd =
+      gbm_device_get_fd(static_cast<gbm_device*>(egl.gbm_device));
 
   static const IhsFormatModifier kNv16{DRM_FORMAT_NV16, 0,
                                        DRM_FORMAT_MOD_LINEAR};

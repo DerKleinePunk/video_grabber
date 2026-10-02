@@ -41,15 +41,15 @@ inline int RunAll() {
 
 }  // namespace check
 
-#define TEST_CASE(name)                                       \
-  static void name();                                         \
-  static ::check::Register name##_reg(#name, name);           \
+#define TEST_CASE(name)                             \
+  static void name();                               \
+  static ::check::Register name##_reg(#name, name); \
   static void name()
 
-#define EXPECT(cond)                                                     \
-  do {                                                               \
-    if (!(cond)) {                                                   \
-      ++::check::Failures();                                         \
+#define EXPECT(cond)                                                   \
+  do {                                                                 \
+    if (!(cond)) {                                                     \
+      ++::check::Failures();                                           \
       std::printf("  %s:%d: EXPECT(%s)\n", __FILE__, __LINE__, #cond); \
-    }                                                                \
+    }                                                                  \
   } while (0)

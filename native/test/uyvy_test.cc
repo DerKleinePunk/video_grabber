@@ -35,8 +35,8 @@ TEST_CASE(full_frame_places_every_value_correctly) {
   const uint32_t w = 4, h = 3;
   auto src = MakeUyvy(w, h, w * 2);
   Nv16 out(h, w);
-  EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kBoth,
-                        out.y.data(), w, out.uv.data(), w));
+  EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kBoth, out.y.data(),
+                        w, out.uv.data(), w));
   for (uint32_t r = 0; r < h; ++r) {
     for (uint32_t x = 0; x < w; ++x) {
       EXPECT(out.y[r * w + x] == 10 * r + x);
@@ -53,8 +53,8 @@ TEST_CASE(top_field_takes_the_even_lines) {
   auto src = MakeUyvy(w, h, w * 2);
   Nv16 out(3, w);
   EXPECT(vg::OutputHeight(h, vg::Field::kTop) == 3);
-  EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kTop,
-                        out.y.data(), w, out.uv.data(), w));
+  EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kTop, out.y.data(),
+                        w, out.uv.data(), w));
   for (uint32_t r = 0; r < 3; ++r) {
     EXPECT(out.y[r * w] == 10 * (2 * r));
     EXPECT(out.uv[r * w] == 100 + 2 * r);
@@ -104,8 +104,8 @@ TEST_CASE(yuyv_is_repacked_correctly) {
     }
   }
   std::vector<uint8_t> y(w * h), uv(w * h);
-  EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kBoth, y.data(),
-                        w, uv.data(), w, vg::Packing::kYuyv));
+  EXPECT(vg::UyvyToNv16(src.data(), w * 2, w, h, vg::Field::kBoth, y.data(), w,
+                        uv.data(), w, vg::Packing::kYuyv));
   for (uint32_t r = 0; r < h; ++r) {
     for (uint32_t x = 0; x < w; ++x) EXPECT(y[r * w + x] == 10 * r + x);
     EXPECT(uv[r * w] == 100 + r);

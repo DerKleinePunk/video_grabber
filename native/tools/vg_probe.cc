@@ -3,8 +3,8 @@
 //   vg_probe [/dev/video0] [input] [seconds] [output.nv16]
 
 #include <chrono>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -17,7 +17,8 @@ int main(int argc, char** argv) {
   if (argc > 1) cfg.device = argv[1];
   if (argc > 2) cfg.input = static_cast<uint32_t>(std::atoi(argv[2]));
   if (const char* n = std::getenv("VG_NORM")) cfg.pal = std::string(n) == "pal";
-  if (const char* w = std::getenv("VG_WIDTH")) cfg.width = static_cast<uint32_t>(std::atoi(w));
+  if (const char* w = std::getenv("VG_WIDTH"))
+    cfg.width = static_cast<uint32_t>(std::atoi(w));
   const int seconds = argc > 3 ? std::atoi(argv[3]) : 3;
   const char* out_path = argc > 4 ? argv[4] : nullptr;
 
@@ -58,7 +59,8 @@ int main(int argc, char** argv) {
         }
         if (f.bytes < min_bytes) min_bytes = f.bytes;
         if (frames == 0 && out_path != nullptr) {
-          const vg::Field field = f.interlaced ? vg::Field::kTop : vg::Field::kBoth;
+          const vg::Field field =
+              f.interlaced ? vg::Field::kTop : vg::Field::kBoth;
           const uint32_t h = vg::OutputHeight(f.height, field);
           std::vector<uint8_t> y(size_t{f.width} * h), uv(y.size());
           vg::UyvyToNv16(f.data, f.stride, f.width, f.height, field, y.data(),
@@ -86,8 +88,10 @@ int main(int argc, char** argv) {
   }
   const double fps =
       frames > 1 ? (frames - 1) * 1e6 / double(last_us - first_us) : 0.0;
-  std::printf("%d frames (%.2f/s), %d of them incomplete (smallest %zu of %zu bytes), %d x 500 ms without a frame\n",
-              frames, fps, incomplete, min_bytes,
-              size_t{cap.width()} * 2 * cap.height(), timeouts);
+  std::printf(
+      "%d frames (%.2f/s), %d of them incomplete (smallest %zu of %zu bytes), "
+      "%d x 500 ms without a frame\n",
+      frames, fps, incomplete, min_bytes,
+      size_t{cap.width()} * 2 * cap.height(), timeouts);
   return frames > 0 ? 0 : 1;
 }

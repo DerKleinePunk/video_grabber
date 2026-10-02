@@ -1,14 +1,14 @@
 #include "v4l2_capture.h"
 
-#include <cerrno>
-#include <cstring>
-
 #include <fcntl.h>
 #include <linux/videodev2.h>
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#include <cerrno>
+#include <cstring>
 
 namespace vg {
 
@@ -115,8 +115,8 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
   if (sys_->Ioctl(fd_, VIDIOC_S_FMT, &fmt) < 0) {
     return Fail("VIDIOC_S_FMT");
   }
-  const uint32_t want = packing_ == Packing::kUyvy ? V4L2_PIX_FMT_UYVY
-                                                   : V4L2_PIX_FMT_YUYV;
+  const uint32_t want =
+      packing_ == Packing::kUyvy ? V4L2_PIX_FMT_UYVY : V4L2_PIX_FMT_YUYV;
   if (fmt.fmt.pix.pixelformat != want) {
     last_error_ = "device did not accept the format";
     Close();
