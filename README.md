@@ -42,3 +42,11 @@ Build output (`libapp.so*`, `build/`, `build-pi/`, `native/build/`) is never com
 
 - Dart: `flutter test`
 - Native (also on the Pi): `cmake -S native -B build && cmake --build build && ctest --test-dir build`
+
+## Static analysis
+
+`tools/analyze.sh` runs what CI runs on every push: `dart format`, `flutter analyze` (strict, see
+`analysis_options.yaml`), `flutter test`, `clang-format`, the native tests, `clang-tidy` (`.clang-tidy`, warnings
+are errors) and `cppcheck`. The platform view plugin is only checked when `IHS_SOURCE_DIR` and `IHS_BUILD_DIR` point
+to ivi-homescreen and its shell build directory, since CI has neither. Tool paths can be set with `FLUTTER`,
+`CLANG_TIDY`, `CLANG_FORMAT` and `CPPCHECK`; `pip install clang-tidy clang-format cppcheck` in a venv is enough.

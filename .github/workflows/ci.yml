@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same Flutter as the Pi build (emb workspace).
+      - name: Flutter 3.47.5
+        run: |
+          git clone --depth 1 --branch 3.47.5 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+
+      - name: Analysis tools
+        run: |
+          pipx install clang-tidy==22.1.8
+          pipx install clang-format==23.1.2
+          pipx install cppcheck==1.5.1
+
+      - name: Analyze and test
+        run: tools/analyze.sh
