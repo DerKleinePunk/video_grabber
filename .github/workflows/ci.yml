@@ -8,7 +8,7 @@ jobs:
   analyze-and-test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Same Flutter as the Pi build (emb workspace).
       - name: Flutter 3.47.5
