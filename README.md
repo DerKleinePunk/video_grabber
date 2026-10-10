@@ -50,3 +50,7 @@ Build output (`libapp.so*`, `build/`, `build-pi/`, `native/build/`) is never com
 are errors) and `cppcheck`. The platform view plugin is only checked when `IHS_SOURCE_DIR` and `IHS_BUILD_DIR` point
 to ivi-homescreen and its shell build directory, since CI has neither. Tool paths can be set with `FLUTTER`,
 `CLANG_TIDY`, `CLANG_FORMAT` and `CPPCHECK`; `pip install clang-tidy clang-format cppcheck` in a venv is enough.
+
+## License
+
+BSD 3-Clause, see [LICENSE](LICENSE).
