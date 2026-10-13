@@ -1,6 +1,6 @@
 // Capture from a V4L2 device: grabber (STK1160, UYVY, norm, input) or USB
-// camera (YUYV), mmap. System calls go through Sys so the tests can run
-// without a device.
+// camera (YUYV, otherwise MJPEG/JPEG), mmap. System calls go through Sys so the
+// tests can run without a device.
 
 #pragma once
 
@@ -39,6 +39,9 @@ struct CaptureConfig {
   // arrived incomplete, at 360 none.
   uint32_t width = 720;
   uint32_t buffers = 4;
+  // USB camera: take MJPEG/JPEG even if the camera also offers YUYV (manual
+  // tests of the JPEG path, VG_FORMAT=jpeg).
+  bool prefer_jpeg = false;
 };
 
 struct Frame {
@@ -51,11 +54,17 @@ struct Frame {
   uint64_t timestamp_us = 0;
 
   Packing packing = Packing::kUyvy;
+  // Compressed (MJPEG/JPEG, bytes vary): decode with JpegDecoder, packing
+  // and stride do not apply.
+  bool jpeg = false;
   bool interlaced = true;  // grabber: yes, USB camera: no (progressive)
 
   // When USB packets are lost the STK1160 delivers a shorter frame and the
-  // rest is shifted. Do not show such frames.
-  [[nodiscard]] bool complete() const { return bytes >= stride * height; }
+  // rest is shifted. Do not show such frames. A broken JPEG frame is only
+  // found by the decoder.
+  [[nodiscard]] bool complete() const {
+    return jpeg ? bytes > 0 : bytes >= stride * height;
+  }
 };
 
 enum class WaitResult {
@@ -83,10 +92,13 @@ class V4l2Capture {
 
   [[nodiscard]] bool is_open() const { return fd_ >= 0; }
   [[nodiscard]] uint32_t width() const { return width_; }
-  // Grabber (UYVY, norm, input, fields) or USB camera (YUYV).
+  // Grabber (UYVY, norm, input, fields) or USB camera (YUYV or JPEG).
   [[nodiscard]] bool is_usb_camera() const {
-    return packing_ == Packing::kYuyv;
+    return jpeg_ || packing_ == Packing::kYuyv;
   }
+  [[nodiscard]] bool is_jpeg() const { return jpeg_; }
+  // For logs: "grabber UYVY", "USB camera YUYV" or "USB camera JPEG".
+  [[nodiscard]] const char* source_name() const;
   [[nodiscard]] uint32_t height() const { return height_; }
   [[nodiscard]] const std::string& last_error() const { return last_error_; }
 
@@ -100,6 +112,8 @@ class V4l2Capture {
   uint32_t height_ = 0;
   size_t stride_ = 0;
   Packing packing_ = Packing::kUyvy;
+  bool jpeg_ = false;
+  uint32_t pixelformat_ = 0;
   bool interlaced_ = true;
   struct Mapping {
     void* addr;

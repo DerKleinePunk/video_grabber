@@ -1,5 +1,6 @@
 // Device probe: opens the grabber, waits for frames and optionally writes
-// one field as a raw NV16 file.
+// one field as a raw NV16 file. JPEG frames (USB cameras) are all decoded to
+// measure the decoder; VG_FORMAT=jpeg prefers JPEG over YUYV.
 //   vg_probe [/dev/video0] [input] [seconds] [output.nv16]
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "jpeg.h"
 #include "params.h"
 #include "uyvy.h"
 #include "v4l2_capture.h"
@@ -50,6 +52,9 @@ int main(int argc, char** argv) {
       std::fprintf(stderr, "VG_WIDTH=%s ignored\n", w);
     }
   }
+  if (const char* f = Env("VG_FORMAT")) {
+    cfg.prefer_jpeg = std::string(f) == "jpeg";
+  }
   const char* const dump_incomplete = Env("VG_DUMP_INCOMPLETE");
   const char* out_path = argc > 4 ? argv[4] : nullptr;
 
@@ -61,9 +66,7 @@ int main(int argc, char** argv) {
                 cap.last_error().c_str());
     return 2;
   }
-  std::printf("open: %s %ux%u\n",
-              cap.is_usb_camera() ? "USB camera YUYV" : "grabber UYVY",
-              cap.width(), cap.height());
+  std::printf("open: %s %ux%u\n", cap.source_name(), cap.width(), cap.height());
 
   const auto start = std::chrono::steady_clock::now();
   int frames = 0;
@@ -72,6 +75,12 @@ int main(int argc, char** argv) {
   size_t min_bytes = SIZE_MAX;
   uint64_t first_us = 0;
   uint64_t last_us = 0;
+  vg::JpegDecoder jpeg;
+  std::vector<uint8_t> jpeg_y(size_t{cap.width()} * cap.height());
+  std::vector<uint8_t> jpeg_uv(jpeg_y.size());
+  int decoded = 0;
+  int broken = 0;
+  std::chrono::steady_clock::duration decode_time{};
   while (std::chrono::steady_clock::now() - start <
          std::chrono::seconds(seconds)) {
     vg::Frame f;
@@ -83,7 +92,7 @@ int main(int argc, char** argv) {
         last_us = f.timestamp_us;
         if (!f.complete()) {
           ++incomplete;
-          if (const char* d = dump_incomplete) {
+          if (const char* d = f.jpeg ? nullptr : dump_incomplete) {
             if (incomplete == 3) {
               if (FILE* o = std::fopen(d, "wb")) {
                 std::fwrite(f.data, 1, f.stride * f.height, o);
@@ -94,7 +103,27 @@ int main(int argc, char** argv) {
           }
         }
         min_bytes = std::min(f.bytes, min_bytes);
-        if (frames == 0 && out_path != nullptr) {
+        if (f.jpeg) {
+          const auto t0 = std::chrono::steady_clock::now();
+          const bool ok = jpeg.DecodeToNv16(f.data, f.bytes, f.width, f.height,
+                                            jpeg_y.data(), f.width,
+                                            jpeg_uv.data(), f.width);
+          decode_time += std::chrono::steady_clock::now() - t0;
+          if (ok) {
+            ++decoded;
+            if (decoded == 1 && out_path != nullptr) {
+              if (FILE* o = std::fopen(out_path, "wb")) {
+                std::fwrite(jpeg_y.data(), 1, jpeg_y.size(), o);
+                std::fwrite(jpeg_uv.data(), 1, jpeg_uv.size(), o);
+                std::fclose(o);
+                std::printf("frame %ux%u NV16 to %s\n", f.width, f.height,
+                            out_path);
+              }
+            }
+          } else if (broken++ == 0) {
+            std::printf("JPEG: %s\n", jpeg.last_error().c_str());
+          }
+        } else if (frames == 0 && out_path != nullptr) {
           const vg::Field field =
               f.interlaced ? vg::Field::kTop : vg::Field::kBoth;
           const uint32_t h = vg::OutputHeight(f.height, field);
@@ -131,5 +160,11 @@ int main(int argc, char** argv) {
       "%d frames (%.2f/s), %d of them incomplete (smallest %zu of %zu bytes), "
       "%d x 500 ms without a frame\n",
       frames, fps, incomplete, min_bytes, full_bytes, timeouts);
+  if (cap.is_jpeg()) {
+    const double ms =
+        std::chrono::duration<double, std::milli>(decode_time).count();
+    std::printf("JPEG: %d decoded, %d broken, %.2f ms per frame\n", decoded,
+                broken, decoded + broken > 0 ? ms / (decoded + broken) : 0.0);
+  }
   return frames > 0 ? 0 : 1;
 }

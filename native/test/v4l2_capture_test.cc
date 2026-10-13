@@ -32,6 +32,8 @@ struct FakeState {
   std::vector<std::vector<uint8_t>> memory;
   std::vector<uint32_t> formats{V4L2_PIX_FMT_UYVY};
   uint32_t field = V4L2_FIELD_INTERLACED;
+  uint32_t pixelformat = 0;  // last VIDIOC_S_FMT
+  uint32_t bytesused = 0;    // != 0: DQBUF reports this (compressed frames)
 };
 
 class FakeSys : public vg::Sys {
@@ -73,6 +75,7 @@ class FakeSys : public vg::Sys {
         auto* f = static_cast<v4l2_format*>(arg);
         s_->width = f->fmt.pix.width;
         s_->height = f->fmt.pix.height;
+        s_->pixelformat = f->fmt.pix.pixelformat;
         f->fmt.pix.bytesperline = f->fmt.pix.width * 2;
         f->fmt.pix.field = f->fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY
                                ? s_->field
@@ -102,7 +105,8 @@ class FakeSys : public vg::Sys {
         auto* b = static_cast<v4l2_buffer*>(arg);
         b->index = s_->ready.front();
         s_->ready.erase(s_->ready.begin());
-        b->bytesused = s_->width * s_->height * 2;
+        b->bytesused =
+            s_->bytesused != 0 ? s_->bytesused : s_->width * s_->height * 2;
         b->timestamp.tv_sec = 2;
         b->timestamp.tv_usec = 5;
         return 0;
@@ -297,13 +301,79 @@ TEST_CASE(grabber_stays_on_uyvy_even_if_yuyv_exists) {
   EXPECT(f.interlaced);
 }
 
-TEST_CASE(mjpeg_only_is_rejected) {
+TEST_CASE(mjpeg_only_camera_delivers_jpeg_frames) {
   FakeState s;
   s.formats = {V4L2_PIX_FMT_MJPEG};
   auto cap = Make(&s);
+  EXPECT(cap.Open({}) == vg::OpenResult::kOk);
+  EXPECT(cap.is_usb_camera());
+  EXPECT(cap.is_jpeg());
+  EXPECT(s.pixelformat == V4L2_PIX_FMT_MJPEG);
+  EXPECT(s.input == -1 && s.std == 0);
+  EXPECT(cap.width() == 640 && cap.height() == 480);
+  s.queued.clear();
+  s.ready = {0};
+  s.bytesused = 23456;  // compressed: far less than width * height * 2
+  vg::Frame f;
+  EXPECT(cap.Wait(100, &f) == vg::WaitResult::kFrame);
+  EXPECT(f.jpeg);
+  EXPECT(f.bytes == 23456);
+  EXPECT(!f.interlaced);
+  EXPECT(f.complete());
+}
+
+TEST_CASE(gspca_jpeg_is_taken_as_well) {
+  FakeState s;
+  s.formats = {V4L2_PIX_FMT_JPEG};  // Microsoft LifeCam VX-3000 (sonixj)
+  auto cap = Make(&s);
+  EXPECT(cap.Open({}) == vg::OpenResult::kOk);
+  EXPECT(cap.is_jpeg());
+  EXPECT(s.pixelformat == V4L2_PIX_FMT_JPEG);
+  EXPECT(std::string(cap.source_name()) == "USB camera JPEG");
+}
+
+TEST_CASE(yuyv_wins_over_mjpeg_unless_jpeg_is_preferred) {
+  FakeState s;
+  s.formats = {V4L2_PIX_FMT_MJPEG, V4L2_PIX_FMT_YUYV};
+  auto cap = Make(&s);
+  EXPECT(cap.Open({}) == vg::OpenResult::kOk);
+  EXPECT(!cap.is_jpeg());
+  EXPECT(s.pixelformat == V4L2_PIX_FMT_YUYV);
+  vg::CaptureConfig cfg;
+  cfg.prefer_jpeg = true;
+  EXPECT(cap.Open(cfg) == vg::OpenResult::kOk);
+  EXPECT(cap.is_jpeg());
+  EXPECT(s.pixelformat == V4L2_PIX_FMT_MJPEG);
+}
+
+TEST_CASE(grabber_ignores_prefer_jpeg) {
+  FakeState s;
+  s.formats = {V4L2_PIX_FMT_MJPEG, V4L2_PIX_FMT_UYVY};
+  auto cap = Make(&s);
+  vg::CaptureConfig cfg;
+  cfg.prefer_jpeg = true;
+  EXPECT(cap.Open(cfg) == vg::OpenResult::kOk);
+  EXPECT(!cap.is_jpeg() && !cap.is_usb_camera());
+  EXPECT(s.pixelformat == V4L2_PIX_FMT_UYVY);
+  EXPECT(std::string(cap.source_name()) == "grabber UYVY");
+}
+
+TEST_CASE(unknown_formats_only_are_rejected) {
+  FakeState s;
+  s.formats = {V4L2_PIX_FMT_H264, V4L2_PIX_FMT_NV12};
+  auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kError);
   EXPECT(!cap.is_open());
-  EXPECT(cap.last_error().find("UYVY") != std::string::npos);
+  EXPECT(cap.last_error().find("JPEG") != std::string::npos);
+}
+
+TEST_CASE(empty_jpeg_frame_is_incomplete) {
+  vg::Frame f;
+  f.jpeg = true;
+  f.bytes = 0;
+  EXPECT(!f.complete());
+  f.bytes = 1;
+  EXPECT(f.complete());
 }
 
 TEST_CASE(incomplete_frame_is_detected) {

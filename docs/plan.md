@@ -4,17 +4,21 @@
 
 A dedicated platform view plugin for ivi-homescreen, **without GStreamer**:
 
-- `native/src/v4l2_capture.*`: V4L2 directly (input, norm, UYVY or YUYV, mmap). Without a source the STK1160
+- `native/src/v4l2_capture.*`: V4L2 directly (input, norm, UYVY, YUYV or MJPEG/JPEG, mmap). Without a source the STK1160
   delivers no frames, so "no signal" is a timeout (`status.*`, 1 s).
 - `native/src/uyvy.*`: top field UYVY → NV16 (720x288 PAL, 720x240 NTSC; width 360 optional). USB cameras
   (YUYV, progressive 640x480) are converted as full frames. The vc4 planes of the Pi 4 scan out NV16 directly.
+- `native/src/jpeg.*`: USB cameras without YUYV (MJPEG from uvcvideo, JPEG from gspca, e.g. the Microsoft LifeCam
+  VX-3000) are decoded with libjpeg (libjpeg-turbo) straight into the same NV16 buffer. Any chroma subsampling is
+  accepted, cut-off or broken frames are dropped. YUYV is preferred when a camera offers both; `VG_FORMAT=jpeg`
+  takes JPEG anyway (manual tests).
 - `native/src/grabber_view.cc`: `libvideo_grabber_view.so` on top of `libihs_shared` (`ihs/platform_view.h`).
   A ring of three DRM dumb buffers, `ihs_pv_submit`. The shell puts the picture on a KMS plane or draws it as a
   texture. `SOFTWARE_SHM` is not wired up under drm-kms-egl, hence dma-buf right away.
 - Dart: `NativeGrabberSource` loads the library (`VG_LIBRARY`, then `LD_LIBRARY_PATH`, then
   `lib/libvideo_grabber_view.so`), creates the view like `pv_bench` and polls `vg_status`. Settings come from
-  `GrabberConfig` (device, input, norm, width) as creationParams; `VG_DEVICE`, `VG_INPUT`, `VG_NORM` and
-  `VG_WIDTH` override them for manual tests.
+  `GrabberConfig` (device, input, norm, width) as creationParams; `VG_DEVICE`, `VG_INPUT`, `VG_NORM`,
+  `VG_WIDTH` and `VG_FORMAT` override them for manual tests.
 
 Verified on a Pi 4 (drm-kms-egl, 1024x600): NV16 negotiated via dma-buf import, view 800x600 (4:3), "no signal"
 without a source, live picture from an NTSC reversing camera, unplugging and replugging while running, touch

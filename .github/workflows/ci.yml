@@ -18,6 +18,7 @@ jobs:
 
       - name: Analysis tools
         run: |
+          sudo apt-get update && sudo apt-get install -y libjpeg-dev
           pipx install clang-tidy==22.1.8
           pipx install clang-format==23.1.2
           pipx install cppcheck==1.5.1

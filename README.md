@@ -1,7 +1,7 @@
 # video_grabber
 
 Flutter app and library that shows the live picture of a USB video grabber (Syntek STK1160, composite/S-Video,
-PAL/NTSC) or a USB camera (uvcvideo, YUYV). The target is the Raspberry Pi 4, built with
+PAL/NTSC) or a USB camera (YUYV, otherwise MJPEG/JPEG). The target is the Raspberry Pi 4, built with
 [emb_cli](https://pub.dev/packages/emb_cli) and ivi-homescreen (backend drm-kms-egl), like the map app from
 `flutter_local_map`. Audio is not used.
 
@@ -35,6 +35,10 @@ cmake --build build-pi
 
 Copy emb's `runnable/` and `build-pi/libvideo_grabber_view.so` (into `lib/`) to the Pi and run
 `./homescreen -b . -f` there. `VG_TEST_PATTERN=1` shows colour bars instead of the grabber.
+
+The plugin links against libjpeg (`libjpeg62-turbo` on Raspberry Pi OS, usually installed already); building it
+needs the headers (`libjpeg-dev`, in the emb sysroot as well). `native/build*/vg_probe` checks a device without
+the app: frame rate, incomplete frames and, for JPEG cameras, the decode time (`VG_FORMAT=jpeg` prefers JPEG).
 
 Build output (`libapp.so*`, `build/`, `build-pi/`, `native/build/`) is never committed.
 

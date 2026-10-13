@@ -88,9 +88,10 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
   }
 
   // Which formats does the device offer? UYVY = grabber (STK1160), otherwise
-  // YUYV = USB camera (uvcvideo). MJPEG is not supported.
+  // USB camera: YUYV (uvcvideo), else MJPEG (uvcvideo) or JPEG (gspca).
   bool has_uyvy = false;
   bool has_yuyv = false;
+  uint32_t jpeg_format = 0;
   for (uint32_t i = 0; i < 32; ++i) {
     v4l2_fmtdesc d{};
     d.index = i;
@@ -100,13 +101,24 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
     }
     has_uyvy = has_uyvy || d.pixelformat == V4L2_PIX_FMT_UYVY;
     has_yuyv = has_yuyv || d.pixelformat == V4L2_PIX_FMT_YUYV;
+    if (jpeg_format == 0 && (d.pixelformat == V4L2_PIX_FMT_MJPEG ||
+                             d.pixelformat == V4L2_PIX_FMT_JPEG)) {
+      jpeg_format = d.pixelformat;
+    }
   }
-  if (!has_uyvy && !has_yuyv) {
-    last_error_ = "device offers neither UYVY nor YUYV";
+  packing_ = has_uyvy ? Packing::kUyvy : Packing::kYuyv;
+  jpeg_ = !has_uyvy && jpeg_format != 0 && (!has_yuyv || config.prefer_jpeg);
+  if (has_uyvy) {
+    pixelformat_ = V4L2_PIX_FMT_UYVY;
+  } else if (jpeg_) {
+    pixelformat_ = jpeg_format;
+  } else if (has_yuyv) {
+    pixelformat_ = V4L2_PIX_FMT_YUYV;
+  } else {
+    last_error_ = "device offers neither UYVY, YUYV nor JPEG";
     Close();
     return OpenResult::kError;
   }
-  packing_ = has_uyvy ? Packing::kUyvy : Packing::kYuyv;
 
   v4l2_format fmt{};
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -127,15 +139,13 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
     // USB camera: 640x480 gives 25/s on the Jieli 1224:2a25, 1280x720 only 5/s.
     fmt.fmt.pix.width = 640;
     fmt.fmt.pix.height = 480;
-    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
+    fmt.fmt.pix.pixelformat = pixelformat_;
     fmt.fmt.pix.field = V4L2_FIELD_NONE;
   }
   if (sys_->Ioctl(fd_, VIDIOC_S_FMT, &fmt) < 0) {
     return Fail("VIDIOC_S_FMT");
   }
-  const uint32_t want =
-      packing_ == Packing::kUyvy ? V4L2_PIX_FMT_UYVY : V4L2_PIX_FMT_YUYV;
-  if (fmt.fmt.pix.pixelformat != want) {
+  if (fmt.fmt.pix.pixelformat != pixelformat_) {
     last_error_ = "device did not accept the format";
     Close();
     return OpenResult::kError;
@@ -217,6 +227,7 @@ WaitResult V4l2Capture::Wait(int timeout_ms, Frame* frame) {
   frame->stride = stride_;
   frame->index = buf.index;
   frame->packing = packing_;
+  frame->jpeg = jpeg_;
   frame->interlaced = interlaced_;
   frame->timestamp_us = static_cast<uint64_t>(buf.timestamp.tv_sec) * 1000000u +
                         static_cast<uint64_t>(buf.timestamp.tv_usec);
@@ -232,6 +243,13 @@ void V4l2Capture::Release(const Frame& frame) {
   buf.memory = V4L2_MEMORY_MMAP;
   buf.index = frame.index;
   sys_->Ioctl(fd_, VIDIOC_QBUF, &buf);
+}
+
+const char* V4l2Capture::source_name() const {
+  if (jpeg_) {
+    return "USB camera JPEG";
+  }
+  return packing_ == Packing::kYuyv ? "USB camera YUYV" : "grabber UYVY";
 }
 
 void V4l2Capture::Close() {

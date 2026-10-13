@@ -6,8 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall -Wextra -Werror)
 
 # Device-free core, testable on the development machine and on the Pi.
-add_library(vg_core STATIC src/uyvy.cc src/v4l2_capture.cc src/status.cc src/params.cc)
+# libjpeg (libjpeg-turbo) decodes MJPEG/JPEG from USB cameras.
+find_package(JPEG REQUIRED)
+add_library(vg_core STATIC src/uyvy.cc src/jpeg.cc src/v4l2_capture.cc
+            src/status.cc src/params.cc)
 target_include_directories(vg_core PUBLIC src)
+target_link_libraries(vg_core PUBLIC JPEG::JPEG)
 set_property(TARGET vg_core PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 add_executable(vg_probe tools/vg_probe.cc)
@@ -18,6 +22,9 @@ if (BUILD_TESTING)
   add_executable(uyvy_test test/uyvy_test.cc)
   target_link_libraries(uyvy_test vg_core)
   add_test(NAME uyvy_test COMMAND uyvy_test)
+  add_executable(jpeg_test test/jpeg_test.cc)
+  target_link_libraries(jpeg_test vg_core)
+  add_test(NAME jpeg_test COMMAND jpeg_test)
   add_executable(v4l2_capture_test test/v4l2_capture_test.cc)
   target_link_libraries(v4l2_capture_test vg_core)
   add_test(NAME v4l2_capture_test COMMAND v4l2_capture_test)

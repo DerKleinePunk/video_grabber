@@ -26,6 +26,7 @@
 #include <thread>
 
 #include "ihs/platform_view.h"
+#include "jpeg.h"
 #include "params.h"
 #include "status.h"
 #include "uyvy.h"
@@ -154,6 +155,12 @@ class GrabberView {
       std::fprintf(stderr,
                    "[video_grabber] view %d: %llu incomplete frames dropped\n",
                    id_, static_cast<unsigned long long>(incomplete_));
+      if (broken_jpeg_ > 0) {
+        std::fprintf(stderr,
+                     "[video_grabber] view %d: %llu broken JPEG frames "
+                     "dropped\n",
+                     id_, static_cast<unsigned long long>(broken_jpeg_));
+      }
     }
     for (auto& b : ring_) {
       FreeBuffer(&b);
@@ -193,9 +200,8 @@ class GrabberView {
           return;
         }
         std::fprintf(stderr, "[video_grabber] view %d: %s %ux%u -> %ux%u\n",
-                     id_,
-                     cap.is_usb_camera() ? "USB camera YUYV" : "grabber UYVY",
-                     cap.width(), cap.height(), ring_width_, ring_height_);
+                     id_, cap.source_name(), cap.width(), cap.height(),
+                     ring_width_, ring_height_);
       }
       Frame f;
       const WaitResult r = cap.Wait(200, &f);
@@ -248,8 +254,18 @@ class GrabberView {
     DumbBuffer& b = ring_[next_];
     WaitRelease(&b, 40);
     const uint32_t h = ring_height_;
-    if (!UyvyToNv16(f.data, f.stride, f.width, f.height, field_, b.map, b.pitch,
-                    b.map + size_t{b.pitch} * h, b.pitch, f.packing)) {
+    uint8_t* const uv = b.map + size_t{b.pitch} * h;
+    if (f.jpeg) {
+      if (!jpeg_.DecodeToNv16(f.data, f.bytes, f.width, f.height, b.map,
+                              b.pitch, uv, b.pitch)) {
+        if (broken_jpeg_++ == 0) {
+          std::fprintf(stderr, "[video_grabber] view %d: JPEG: %s\n", id_,
+                       jpeg_.last_error().c_str());
+        }
+        return;
+      }
+    } else if (!UyvyToNv16(f.data, f.stride, f.width, f.height, field_, b.map,
+                           b.pitch, uv, b.pitch, f.packing)) {
       return;
     }
     const int fd = ::dup(b.fd);
@@ -301,6 +317,8 @@ class GrabberView {
   Field field_ = Field::kTop;
   bool submit_error_logged_ = false;
   uint64_t incomplete_ = 0;
+  JpegDecoder jpeg_;
+  uint64_t broken_jpeg_ = 0;
 };
 
 void OnDispose(void* user_data) {
@@ -341,9 +359,13 @@ CaptureConfig ConfigFor(const IhsPvCreateInfo* info) {
           "VG_WIDTH")) {
     c.width = std::string(w) == "720" ? 720 : 360;
   }
-  std::fprintf(stderr, "[video_grabber] view %d: %s input %u %s width %u\n",
+  if (const char* f = std::getenv(  // NOLINT(concurrency-mt-unsafe)
+          "VG_FORMAT")) {
+    c.prefer_jpeg = std::string(f) == "jpeg";
+  }
+  std::fprintf(stderr, "[video_grabber] view %d: %s input %u %s width %u%s\n",
                info->id, c.device.c_str(), c.input, c.pal ? "PAL" : "NTSC",
-               c.width);
+               c.width, c.prefer_jpeg ? " prefer JPEG" : "");
   return c;
 }
 
