@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 enum VideoNorm { pal, ntsc }
 
 /// Camera settings. Norm, input and width apply to the grabber (STK1160,
-/// UYVY); the plugin detects a USB camera (uvcvideo, YUYV) by itself and uses
+/// UYVY); the plugin detects a USB camera (MJPEG or YUYV) by itself and uses
 /// 640x480 progressive, where only [device] matters.
 /// The settings are not stored here but by the backend (carnine2); the app
 /// only passes them on to the native view.

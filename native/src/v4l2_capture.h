@@ -39,9 +39,10 @@ struct CaptureConfig {
   // arrived incomplete, at 360 none.
   uint32_t width = 720;
   uint32_t buffers = 4;
-  // USB camera: take MJPEG/JPEG even if the camera also offers YUYV (manual
-  // tests of the JPEG path, VG_FORMAT=jpeg).
-  bool prefer_jpeg = false;
+  // USB camera: take MJPEG/JPEG even if the camera also offers YUYV. MJPEG
+  // arrives much earlier (Jieli 1224:2a25: 57 instead of 154 ms to the
+  // display, 30 instead of 25 frames/s); VG_FORMAT=yuyv goes back to YUYV.
+  bool prefer_jpeg = true;
 };
 
 struct Frame {

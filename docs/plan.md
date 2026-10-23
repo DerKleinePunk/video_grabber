@@ -8,10 +8,11 @@ A dedicated platform view plugin for ivi-homescreen, **without GStreamer**:
   delivers no frames, so "no signal" is a timeout (`status.*`, 1 s).
 - `native/src/uyvy.*`: top field UYVY → NV16 (720x288 PAL, 720x240 NTSC; width 360 optional). USB cameras
   (YUYV, progressive 640x480) are converted as full frames. The vc4 planes of the Pi 4 scan out NV16 directly.
-- `native/src/jpeg.*`: USB cameras without YUYV (MJPEG from uvcvideo, JPEG from gspca, e.g. the Microsoft LifeCam
-  VX-3000) are decoded with libjpeg (libjpeg-turbo) straight into the same NV16 buffer. Any chroma subsampling is
-  accepted, cut-off or broken frames are dropped. YUYV is preferred when a camera offers both; `VG_FORMAT=jpeg`
-  takes JPEG anyway (manual tests).
+- `native/src/jpeg.*`: USB cameras with MJPEG (uvcvideo) or JPEG (gspca, e.g. the Microsoft LifeCam VX-3000) are
+  decoded with libjpeg (libjpeg-turbo) straight into the same NV16 buffer. Any chroma subsampling is accepted,
+  cut-off or broken frames are dropped. MJPEG is preferred when a camera offers both: on the Jieli 1224:2a25 the
+  picture reached the display after 57 instead of 154 ms (30 instead of 25 frames/s, measured 2026-10-23 on a Pi 4).
+  `VG_FORMAT=yuyv` takes YUYV anyway.
 - `native/src/grabber_view.cc`: `libvideo_grabber_view.so` on top of `libihs_shared` (`ihs/platform_view.h`).
   A ring of three DRM dumb buffers, `ihs_pv_submit`. The shell puts the picture on a KMS plane or draws it as a
   texture. `SOFTWARE_SHM` is not wired up under drm-kms-egl, hence dma-buf right away.

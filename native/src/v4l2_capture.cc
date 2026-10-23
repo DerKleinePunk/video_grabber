@@ -88,7 +88,7 @@ OpenResult V4l2Capture::Open(const CaptureConfig& config) {
   }
 
   // Which formats does the device offer? UYVY = grabber (STK1160), otherwise
-  // USB camera: YUYV (uvcvideo), else MJPEG (uvcvideo) or JPEG (gspca).
+  // USB camera: MJPEG (uvcvideo) or JPEG (gspca), else YUYV (uvcvideo).
   bool has_uyvy = false;
   bool has_yuyv = false;
   uint32_t jpeg_format = 0;

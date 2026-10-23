@@ -361,11 +361,11 @@ CaptureConfig ConfigFor(const IhsPvCreateInfo* info) {
   }
   if (const char* f = std::getenv(  // NOLINT(concurrency-mt-unsafe)
           "VG_FORMAT")) {
-    c.prefer_jpeg = std::string(f) == "jpeg";
+    c.prefer_jpeg = std::string(f) != "yuyv";
   }
   std::fprintf(stderr, "[video_grabber] view %d: %s input %u %s width %u%s\n",
                info->id, c.device.c_str(), c.input, c.pal ? "PAL" : "NTSC",
-               c.width, c.prefer_jpeg ? " prefer JPEG" : "");
+               c.width, c.prefer_jpeg ? "" : " prefer YUYV");
   return c;
 }
 

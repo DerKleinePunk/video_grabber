@@ -1,6 +1,6 @@
 // Device probe: opens the grabber, waits for frames and optionally writes
 // one field as a raw NV16 file. JPEG frames (USB cameras) are all decoded to
-// measure the decoder; VG_FORMAT=jpeg prefers JPEG over YUYV.
+// measure the decoder; VG_FORMAT=yuyv takes YUYV instead of JPEG.
 //   vg_probe [/dev/video0] [input] [seconds] [output.nv16]
 
 #include <algorithm>
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
     }
   }
   if (const char* f = Env("VG_FORMAT")) {
-    cfg.prefer_jpeg = std::string(f) == "jpeg";
+    cfg.prefer_jpeg = std::string(f) != "yuyv";
   }
   const char* const dump_incomplete = Env("VG_DUMP_INCOMPLETE");
   const char* out_path = argc > 4 ? argv[4] : nullptr;

@@ -270,7 +270,7 @@ TEST_CASE(close_stops_streaming_and_frees_memory) {
 
 TEST_CASE(usb_camera_with_yuyv_without_norm_and_input) {
   FakeState s;
-  s.formats = {V4L2_PIX_FMT_MJPEG, V4L2_PIX_FMT_YUYV};
+  s.formats = {V4L2_PIX_FMT_YUYV};
   auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kOk);
   EXPECT(cap.is_usb_camera());
@@ -332,18 +332,20 @@ TEST_CASE(gspca_jpeg_is_taken_as_well) {
   EXPECT(std::string(cap.source_name()) == "USB camera JPEG");
 }
 
-TEST_CASE(yuyv_wins_over_mjpeg_unless_jpeg_is_preferred) {
+TEST_CASE(mjpeg_wins_over_yuyv_unless_yuyv_is_asked_for) {
   FakeState s;
-  s.formats = {V4L2_PIX_FMT_MJPEG, V4L2_PIX_FMT_YUYV};
+  s.formats = {V4L2_PIX_FMT_YUYV, V4L2_PIX_FMT_MJPEG};
   auto cap = Make(&s);
   EXPECT(cap.Open({}) == vg::OpenResult::kOk);
-  EXPECT(!cap.is_jpeg());
-  EXPECT(s.pixelformat == V4L2_PIX_FMT_YUYV);
-  vg::CaptureConfig cfg;
-  cfg.prefer_jpeg = true;
-  EXPECT(cap.Open(cfg) == vg::OpenResult::kOk);
   EXPECT(cap.is_jpeg());
   EXPECT(s.pixelformat == V4L2_PIX_FMT_MJPEG);
+  EXPECT(std::string(cap.source_name()) == "USB camera JPEG");
+  vg::CaptureConfig cfg;
+  cfg.prefer_jpeg = false;
+  EXPECT(cap.Open(cfg) == vg::OpenResult::kOk);
+  EXPECT(!cap.is_jpeg());
+  EXPECT(s.pixelformat == V4L2_PIX_FMT_YUYV);
+  EXPECT(std::string(cap.source_name()) == "USB camera YUYV");
 }
 
 TEST_CASE(grabber_ignores_prefer_jpeg) {
